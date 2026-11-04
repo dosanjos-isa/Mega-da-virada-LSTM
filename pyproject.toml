@@ -1,0 +1,100 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "lstm-virada"
+version = "0.1.0"
+description = "Modelo LSTM experimental para a Mega da Virada"
+requires-python = ">=3.11"
+readme = "README.md"
+dependencies = [
+    "tensorflow>=2.15",
+    "numpy",
+    "pandas",
+    "scipy",
+    "scikit-learn",
+    "pyyaml",
+    "matplotlib",
+]
+
+[project.optional-dependencies]
+dev = [
+    "jupyterlab",
+    "notebook",
+    "ipykernel",
+    "pytest",
+    "pytest-cov",
+    "mypy",
+    "ruff",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+# ---------------------------------------------------------------------------
+# Ruff — formatação e lint (RC-002)
+# ---------------------------------------------------------------------------
+[tool.ruff]
+target-version = "py311"
+line-length = 88
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = [
+    "E",    # pycodestyle errors
+    "W",    # pycodestyle warnings
+    "F",    # pyflakes
+    "I",    # isort
+    "N",    # pep8-naming
+    "UP",   # pyupgrade
+    "B",    # flake8-bugbear
+    "SIM",  # flake8-simplify
+    "RUF",  # ruff-specific
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["lstm_virada"]
+
+# ---------------------------------------------------------------------------
+# mypy — tipagem estática (RC-002)
+# ---------------------------------------------------------------------------
+[tool.mypy]
+python_version = "3.11"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+check_untyped_defs = true
+
+[[tool.mypy.overrides]]
+module = [
+    "tensorflow.*",
+    "keras.*",
+    "sklearn.*",
+    "scipy.*",
+    "matplotlib.*",
+]
+ignore_missing_imports = true
+
+# ---------------------------------------------------------------------------
+# pytest (RC-002)
+# ---------------------------------------------------------------------------
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+addopts = "-v --tb=short"
+
+# ---------------------------------------------------------------------------
+# coverage — cobertura mínima de 85% em dados e métricas (RC-002)
+# ---------------------------------------------------------------------------
+[tool.coverage.run]
+source = ["lstm_virada"]
+
+[tool.coverage.report]
+fail_under = 85
+show_missing = true
+exclude_lines = [
+    "pragma: no cover",
+    "if __name__ == .__main__.",
+    "if TYPE_CHECKING:",
+]

@@ -1,0 +1,25 @@
+# Dependências do projeto LSTM para a Mega da Virada
+# Instalar com: pip install -r requirements.txt
+# Stack definida na especificação (RC-001) e ambiente Jupyter
+
+# --- Core e Modelagem ---
+tensorflow>=2.15
+numpy
+pandas
+scipy
+scikit-learn
+pyyaml
+
+# --- Visualização e EDA ---
+matplotlib
+
+# --- Ambiente Jupyter ---
+jupyterlab
+notebook
+ipykernel
+
+# --- Desenvolvimento e qualidade (RC-002) ---
+pytest
+pytest-cov
+mypy
+ruff

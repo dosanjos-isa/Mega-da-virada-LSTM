@@ -1,0 +1,67 @@
+# ===================================================================
+# .gitignore — Python + Jupyter + Windows
+# ===================================================================
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg-info/
+*.egg
+dist/
+build/
+*.whl
+
+# --- Ambientes virtuais ---
+.venv/
+venv/
+env/
+ENV/
+
+# --- Ferramentas de qualidade ---
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# --- Jupyter Notebooks (checkpoints) ---
+.ipynb_checkpoints/
+
+# --- IDEs e Editores ---
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# --- Windows ---
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# --- Logs e Arquivos Temporários de Escrita ---
+*.log
+*.tmp
+*.temp
+
+# --- Modelos, Checkpoints e Artefatos Pesados ---
+logs/
+checkpoints/
+*.h5
+*.keras
+saved_model/
+
+# ===================================================================
+# PRESERVAR (NÃO ignorar):
+# - spec/
+# - notebooks/ (*.ipynb)
+# - data/raw/ (*.csv)
+# - configs/
+# ===================================================================
+!spec/
+!notebooks/*.ipynb
+!data/raw/*.csv
+!configs/
