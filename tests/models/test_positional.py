@@ -188,7 +188,7 @@ def test_m3_log_verossimilhança_conjunto_dados() -> None:
     """M3: log-verossimilhança de um conjunto de dados."""
     modelo = _criar_modelo_posicional(P1_VALUES, P2_VALUES)
 
-    dados = [(1, 2), (3, 4), (4, 5)]
+    dados: list[tuple[int, ...]] = [(1, 2), (3, 4), (4, 5)]
     ll = modelo.log_verossimilhança(dados)
     esperado = sum(modelo.log_prob_conjunto(S) for S in dados)
     assert np.isclose(ll, esperado, atol=1e-10)
