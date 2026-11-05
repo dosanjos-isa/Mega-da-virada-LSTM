@@ -229,7 +229,7 @@ def targets_to_draw(targets: Sequence[int]) -> tuple[int, ...]:
                 f"Alvos devem estar em ordem estritamente crescente: {targets_list}."
             )
 
-    return tuple(int(t + 1) for t in targets_list)
+    return tuple(t + 1 for t in targets_list)
 
 
 # ==============================================================================
