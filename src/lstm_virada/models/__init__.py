@@ -14,7 +14,7 @@ from __future__ import annotations
 from lstm_virada.models.fisher import FisherError, FisherModel
 from lstm_virada.models.plackett_luce import PlackettLuce, PlackettLuceError
 from lstm_virada.models.positional import PositionalError, PositionalModel
-from lstm_virada.models.seq_pl import SeqPLError, SeqPLModel
+from lstm_virada.models.seq_pl import NUM_CLASSES, NUM_DEZENAS_JOGO, SeqPLError, SeqPLModel
 from lstm_virada.models.lstm_seis_cabecas import (
     LSTMSeisCabecas,
     LSTMSeisCabecasError,
@@ -35,4 +35,6 @@ __all__ = [
     "LSTMSeisCabecasError",
     "VARIANTE_SET",
     "VARIANTE_CCE",
+    "NUM_CLASSES",
+    "NUM_DEZENAS_JOGO",
 ]
