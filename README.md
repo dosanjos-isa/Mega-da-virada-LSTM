@@ -10,11 +10,20 @@ Projeto de Machine Learning que treina uma rede neural recorrente LSTM sobre o h
 
 O projeto é desenvolvido estritamente sob a metodologia **Spec Driven Development (SDD)**:
 
-- 📄 **Especificação Oficial Vigente (v0.2):** [`spec/spec_lstm_mega_virada_v0.2.md`](spec/spec_lstm_mega_virada_v0.2.md)  
-  *Formaliza o processo operacional de geração de jogos (RG-001 a RG-012), amostragem sequencial e métricas de diversidade.*
-- 🏛️ **Decisão Arquitetural:** [`spec/adr/ADR-001-geracao-de-jogos-e-diversidade.md`](spec/adr/ADR-001-geracao-de-jogos-e-diversidade.md)  
-  *Documenta a escolha da amostragem autorregressiva condicionada e controle por dezenas compartilhadas (`max_shared_numbers`).*
-- 📜 **Versão Anterior Preservada (v0.1):** [`spec/spec_lstm_mega_virada_v1.md`](spec/spec_lstm_mega_virada_v1.md)
+- 📄 **Especificação Matemática Vigente (v0.3):** [`spec/math_spec.md`](spec/math_spec.md)  
+  *Define modelos probabilísticos (M0–M5), likelihoods, normalizações, baselines B0–B3, avaliação, geração e reprodutibilidade.*
+- 🏛️ **Decisões Arquiteturais (ADRs):**
+  - [`spec/adr/ADR-001-geracao-de-jogos-e-diversidade.md`](spec/adr/ADR-001-geracao-de-jogos-e-diversidade.md)  
+    *Geração de jogos, amostragem sequencial condicionada e filtro de diversidade (`max_shared_numbers`).*
+  - [`spec/adr/ADR-002-modelo-probabilistico-primario.md`](spec/adr/ADR-002-modelo-probabilistico-primario.md)  
+    *Modelo primário M1 (Plackett–Luce), M2 (Fisher) como sensibilidade, M3/M4/M5 como ablações, LSTM como ablação de DL.*
+  - [`spec/adr/ADR-003-likelihood-e-comparabilidade.md`](spec/adr/ADR-003-likelihood-e-comparabilidade.md)  
+    *Likelihood, normalização e comparabilidade entre modelos.*
+- 📝 **Pré-Registro Estatístico:** [`spec/pre_registration.md`](spec/pre_registration.md)  
+  *Hipóteses H1–H7, splits Teste A/Teste B, métricas, testes estatísticos, seeds, poder, critérios de veredito.*
+- 📜 **Versões Anteriores Preservadas:**
+  - [`spec/spec_lstm_mega_virada_v1.md`](spec/spec_lstm_mega_virada_v1.md) (v0.1 — substituída por math_spec.md v0.3)
+  - [`spec/spec_lstm_mega_virada_v0.2.md`](spec/spec_lstm_mega_virada_v0.2.md) (v0.2 — substituída por math_spec.md v0.3)
 
 Se houver qualquer divergência entre a implementação e a especificação, **a spec prevalece**.
 
@@ -25,10 +34,18 @@ Se houver qualquer divergência entre a implementação e a especificação, **a
 ```text
 Mega da virada LSTM/
 ├── spec/                                       # Especificação SDD e ADRs
-│   ├── spec_lstm_mega_virada_v0.2.md          # Especificação vigente (v0.2)
+│   ├── math_spec.md                            # Especificação matemática vigente (v0.3)
+│   ├── pre_registration.md                     # Pré-registro estatístico (hipóteses, splits, veredito)
+│   ├── spec_lstm_mega_virada_v0.2.md          # Versão histórica preservada (v0.2)
 │   ├── spec_lstm_mega_virada_v1.md            # Versão histórica preservada (v0.1)
 │   └── adr/
-│       └── ADR-001-geracao-de-jogos-e-diversidade.md
+│       ├── ADR-001-geracao-de-jogos-e-diversidade.md
+│       ├── ADR-002-modelo-probabilistico-primario.md
+│       └── ADR-003-likelihood-e-comparabilidade.md
+├── scripts/                                    # Scripts de execução
+│   ├── activar_treino.ps1                     # Cria e ativa .venv-treino (TensorFlow)
+│   ├── run_treino.py                           # Ponto de entrada do treino
+│   └── check_gpu.py                            # Verificação de GPU via DirectML
 ├── configs/                                    # Arquivos YAML versionados (RC-003)
 │   ├── README.md                               # Guia de parâmetros de referência
 │   └── experiments/                            # Configurações de treinos e ablações
@@ -36,6 +53,8 @@ Mega da virada LSTM/
 │   ├── raw/                                    # Dados brutos imutáveis
 │   │   ├── megasena-download-resultados.csv    # 3.074 concursos oficiais da Caixa
 │   │   └── mega_da_virada.csv                  # 17 concursos da Mega da Virada (2009–2025)
+│   ├── manifests/                              # Manifestos com hashes SHA-256 (P0-01 a P0-03)
+│   │   └── manifest.json
 │   └── processed/                              # Datasets unificados com hash SHA-256
 │       └── dataset_megasena_virada_processed.csv
 ├── notebooks/                                  # Ambiente interativo Jupyter
@@ -43,31 +62,55 @@ Mega da virada LSTM/
 │   ├── 01_format_virada.ipynb                  # 2º: Normalização e conferência da Virada (RT-002)
 │   ├── 02_inspecao_e_eda.ipynb                 # 3º: Análise Exploratória de Dados (EDA)
 │   └── 03_experimentos.ipynb                   # 4º: Treinamento, métricas e geração de jogos
-├── reports/                                    # Logs, auditorias e relatórios de execução
 ├── src/
 │   └── lstm_virada/                            # Pacote de lógica de produção pura
 │       ├── __init__.py
-│       ├── data.py                             # Ingestão, validação RT-003 e exportação SHA-256 (T1)
-│       ├── encoding.py                         # Multi-hot 61 features e janelas temporais W (T2)
-│       ├── decode.py                           # Decodificação ótima de máxima verossimilhança por DP (T2)
-│       ├── model.py                            # Arquitetura LSTM com 6 cabeças softmax (T4)
-│       ├── train.py                            # Treinamento com pesos α por amostra (T4)
-│       ├── generation.py                        # Geração estocástica de jogos e diversidade (T8)
-│       ├── metrics.py                          # Baselines B0..B3 e métricas M1..M10 (T3, T5)
-│       └── stats.py                            # Testes de hipótese, bootstrap BCa e veredito RV-011 (T6)
+│       ├── data.py                             # Ingestão, validação RT-003, virada_ano, manifesto (P0-01 a P0-04)
+│       ├── encoding.py                         # Multi-hot 61 features, janelas W, targets_to_draw (P0-06, P0-10)
+│       ├── decode.py                           # Decodificação ótima por DP, exceções em vez de assert (P0-10)
+│       ├── model.py                            # Stub (arquitetura LSTM não implementada como modelo principal)
+│       ├── train.py                            # Stub (treino não implementado como modelo principal)
+│       ├── generation.py                        # Ausente (não implementado)
+│       ├── metrics.py                          # Baselines B0–B3, métricas M1–M10 (P0-08)
+│       ├── stats.py                            # Testes de hipótese, bootstrap BCa, veredito (P0-09)
+│       ├── splits.py                           # TemporalSplitter, WalkForwardSplitter, InferenceWindowExtractor (P0-05)
+│       ├── baselines.py                        # B0, B1, B2a, B2b, B3 (P0-07)
+│       └── models/                             # Modelos probabilísticos (Fase 3)
+│           ├── __init__.py
+│           ├── plackett_luce.py                # M1 — Plackett–Luce marginalizado (P1-01)
+│           ├── fisher.py                       # M2 — Fisher (produto condicional) (P1-02)
+│           ├── positional.py                   # M3 — Produto posicional normalizado (P1-03)
+│           ├── seq_pl.py                       # M4 — PL Neural Sequencial (P1-04)
+│           └── lstm_seis_cabecas.py            # M5 — LSTM de 6 cabeças (M5-SET e M5-CCE) (P1-05)
+├── train_walkforward.py                        # Orquestração do treino walk-forward (P1-06)
 ├── tests/                                      # Bateria de testes unitários com rastreabilidade (# cobre: ID)
 │   ├── conftest.py
 │   ├── data/
-│   │   └── test_data.py                        # 18 testes automatizados (RT-001 a RT-004)
+│   │   └── test_data.py                        # 18 testes (RT-001 a RT-004, P0-01 a P0-04)
 │   ├── encoding/
-│   │   └── test_encoding.py                    # 15 testes automatizados (RT-005, RT-006, DP)
-│   ├── model/
+│   │   └── test_encoding.py                    # 25 testes (RT-005, RT-006, P0-06, P0-10)
+│   ├── splits/
+│   │   └── test_splits.py                      # 15 testes (P0-05)
+│   ├── baselines/
+│   │   └── test_baselines.py                   # 16 testes (P0-07)
 │   ├── metrics/
-│   └── stats/
+│   │   └── test_metrics.py                     # 23 testes (P0-08)
+│   ├── stats/
+│   │   └── test_stats.py                       # 16 testes (P0-09)
+│   ├── models/
+│   │   ├── test_plackett_luce.py               # 9 testes (P1-01)
+│   │   ├── test_fisher.py                      # 10 testes (P1-02)
+│   │   ├── test_positional.py                  # 11 testes (P1-03)
+│   │   ├── test_seq_pl.py                      # 5 testes (P1-04)
+│   │   └── test_lstm_seis_cabecas.py           # 7 testes (P1-05)
+│   └── train_walkforward/
+│       └── test_walkforward.py                 # 9 testes (P1-06)
 ├── .gitignore
 ├── README.md
 ├── pyproject.toml
-└── requirements.txt
+├── requirements.txt                            # Ambiente base (sem TensorFlow)
+├── requirements-base.txt                       # Ambiente base (sem TensorFlow)
+└── requirements-gpu.txt                        # Ambiente de treino (com tensorflow-directml)
 ```
 
 ---
@@ -89,28 +132,32 @@ Para evitar conjuntos de apostas redundantes ao solicitar múltiplos bilhetes (e
 
 ---
 
-## 4. Status de Implementação das Tarefas
+## 4. Status de Implementação (Fases 0 a 3)
 
-| Tarefa | Escopo | Requisitos | Status |
+| Fase | Item | Escopo | Status |
 |:---:|---|---|:---:|
-| **T0** | Estruturação inicial do repositório, ambiente e notebooks | RF-001, RC-001, RC-002 | ✅ Concluída |
-| **T1** | Ingestão, unificação da série e validação estrita de dados | RT-001, RT-002, RT-003, RT-004 | ✅ Concluída (18 testes) |
-| **T7** | Evolução da SDD (v0.2) e formalização de Geração de Jogos | RG-001 a RG-012 | ✅ Concluída (Spec v0.2 + ADR-001) |
-| **T2** | Codificação multi-hot e decodificação determinística (DP Top-1) | RT-005, RT-006 | ⏳ Próxima |
-| **T3** | Implementação dos baselines de referência B0 a B3 | RV-001, RV-004 | ⏳ Planejada |
-| **T4** | Arquitetura LSTM com 6 cabeças e treinamento com pesos $\alpha$ | RT-007 a RT-013 | ⏳ Planejada |
-| **T8** | Módulo de geração de múltiplos jogos e filtro de diversidade | RG-002 a RG-008, RG-011 | ⏳ Planejada |
-| **T9–T10** | Integração da geração com modelo salvo e configuração YAML | RG-001, RG-004, RG-009, RG-010 | ⏳ Planejada |
-| **T11** | Suíte de testes automatizados para geração de jogos | RG-001 a RG-012 (14 cenários) | ⏳ Planejada |
-| **T5–T6** | Validação Walk-Forward (2015–2025) e veredito estatístico | RV-001 a RV-014, RM-001 a RM-003 | ⏳ Planejada |
-| **T12** | Integração e renderização visual no Jupyter Notebook | RG-012, RF-007 | ⏳ Planejada |
-| **T13–T14** | Avaliação do portfólio de jogos e previsão prospectiva 2026 | RV-003, RG-005, RG-010 | ⏳ Planejada |
+| **Fase 0** | `spec/math_spec.md` | Modelos M0–M5, likelihoods, normalizações, baselines, avaliação | ✅ Concluída (Gate 0 aprovado) |
+| **Fase 0** | `spec/adr/ADR-002` | Modelo primário M1, M2, M3/M4/M5, LSTM como ablação | ✅ Concluída |
+| **Fase 0** | `spec/adr/ADR-003` | Likelihood, normalização, comparabilidade | ✅ Concluída |
+| **Fase 0** | `spec/pre_registration.md` | Hipóteses H1–H7, splits, métricas, testes, veredito | ✅ Concluída |
+| **Fase 1** | P0-01 a P0-04 | Proveniência, `virada_ano`, manifesto, testes invariantes | ✅ Concluída (Gate 1 aprovado) |
+| **Fase 2** | P0-05 a P0-10 | Splitter, baselines, métricas, estatística, contratos | ✅ Concluída (Gate 2 aprovado) |
+| **Fase 3** | P1-01 | M1 Plackett–Luce (vetores Apêndice B) | ✅ Concluído (9 testes) |
+| **Fase 3** | P1-02 | M2 Fisher (vetores Apêndice B) | ✅ Concluído (10 testes) |
+| **Fase 3** | P1-03 | M3 Produto Posicional (DP, modo exato) | ✅ Concluído (11 testes) |
+| **Fase 3** | P1-04 | M4 PL Neural Sequencial | ✅ Concluído (5 testes) |
+| **Fase 3** | P1-05 | M5 LSTM 6 cabeças (M5-SET e M5-CCE) | ✅ Concluído (7 testes) |
+| **Fase 3** | P1-06 | Treino walk-forward (100 épocas, early stopping, 10 seeds) | ✅ Concluído (9 testes) |
+| **—** | Geração de jogos | `generation.py` ausente | ❌ Não iniciado |
+| **—** | Notebooks 02/03 | Placeholders, config inline | ⚠️ Obsoleto |
 
 ---
 
 ## 5. Preparação do Ambiente no Windows
 
-Execute os seguintes comandos no PowerShell a partir da raiz do repositório:
+O projeto usa **dois ambientes separados**: um para desenvolvimento/testes (sem TensorFlow) e outro dedicado ao treino (com TensorFlow/DirectML).
+
+### 5.1 Ambiente Base (desenvolvimento e testes)
 
 ```powershell
 # 1. Criar o ambiente virtual com Python 3.11
@@ -134,6 +181,26 @@ python -m ipykernel install --user --name lstm-virada --display-name "Python (LS
 # 7. Iniciar o JupyterLab
 jupyter lab
 ```
+
+### 5.2 Ambiente de Treino (somente quando for treinar modelos)
+
+O treino de modelos neurais (M4 e M5) requer o TensorFlow. Use um **venv dedicado** para não poluir o ambiente base:
+
+```powershell
+# 1. Criar e ativar o ambiente de treino
+.\scripts\activar_treino.ps1
+
+# 2. Verificar se a GPU foi detectada (opcional)
+python scripts/check_gpu.py
+
+# 3. Executar o treino walk-forward
+python scripts/run_treino.py --modelo M1 --epocas 100 --seeds 10
+
+# 4. Sair do ambiente quando terminar
+deactivate
+```
+
+**Nota sobre GPU (DirectML):** O `tensorflow-directml` não tem build para Python 3.13+. Se estiver no Python 3.13, use Python 3.11/3.12 para DirectML nativo no Windows, ou WSL2 com TensorFlow CUDA. O código dos modelos não precisa de alteração — o Keras detecta o dispositivo automaticamente.
 
 ---
 
