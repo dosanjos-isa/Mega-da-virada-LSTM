@@ -200,16 +200,15 @@ def targets_to_draw(targets: Sequence[int]) -> tuple[int, ...]:
         targets: Sequência de 6 inteiros em [0, 59].
 
     Returns:
-        Tupla de 6 dezenas ordenadas em [1, 60].
+        Tupla de 6 dezenas em [1, 60].
     """
     if len(targets) != NUM_DEZENAS_JOGO:
         raise EncodingError(f"Esperados {NUM_DEZENAS_JOGO} alvos, recebido: {len(targets)}.")
 
-    dezenas = tuple(int(t + 1) for t in targets)
-    if any(not (1 <= d <= NUM_CLASSES) for d in dezenas):
+    if not all(0 <= t < NUM_CLASSES for t in targets):
         raise EncodingError(f"Alvos contêm valores fora da faixa [0, {NUM_CLASSES - 1}]: {targets}.")
 
-    return dezenas
+    return tuple(t + 1 for t in targets)
 
 
 # ==============================================================================
