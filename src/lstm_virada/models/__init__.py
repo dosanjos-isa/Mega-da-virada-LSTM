@@ -14,6 +14,7 @@ from __future__ import annotations
 from lstm_virada.models.fisher import FisherError, FisherModel
 from lstm_virada.models.plackett_luce import PlackettLuce, PlackettLuceError
 from lstm_virada.models.positional import PositionalError, PositionalModel
+from lstm_virada.models.seq_pl import SeqPLError, SeqPLModel
 
 __all__ = [
     "PlackettLuce",
@@ -22,4 +23,6 @@ __all__ = [
     "FisherError",
     "PositionalModel",
     "PositionalError",
+    "SeqPLModel",
+    "SeqPLError",
 ]
