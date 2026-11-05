@@ -33,6 +33,12 @@ except ImportError:  # pragma: no cover
             return func
 
         @staticmethod
+        def skip(msg: str = "") -> Any:
+            """No-op no modo stub (pytest nao instalado). Em execucao real,
+            pytest.skip levanta excecao especial para pular o teste."""
+            return None
+
+        @staticmethod
         def raises(expected_exception: type[Exception], match: str | None = None) -> Any:
             class _RaisesContext:
                 def __enter__(self) -> "_RaisesContext":
