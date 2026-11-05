@@ -71,6 +71,9 @@ def _standardize_probs_matrix(probs: np.ndarray | Sequence[np.ndarray]) -> np.nd
     if np.any(matrix < 0.0):
         raise DecodingError("Matriz de probabilidades contém valores negativos.")
 
+    if np.any(matrix > 1.0):
+        raise DecodingError("Matriz de probabilidades contém valores maiores que 1.0.")
+
     return matrix
 
 
@@ -161,12 +164,17 @@ def decode_top1_dp(
     dezenas = tuple(c + 1 for c in selected_classes)
 
     # Validação matemática formal de integridade (RG-002, RG-003, RG-011)
-    assert len(dezenas) == 6, f"Jogo deve conter 6 dezenas, obtido {len(dezenas)}"
-    assert len(set(dezenas)) == 6, f"Jogo contém dezenas duplicadas: {dezenas}"
-    assert all(1 <= d <= 60 for d in dezenas), f"Dezenas fora do intervalo [1, 60]: {dezenas}"
-    assert all(dezenas[k] < dezenas[k + 1] for k in range(5)), f"Dezenas fora de ordem estrita: {dezenas}"
+    # P0-10: usa exceções DecodingError em vez de assert.
+    if len(dezenas) != 6:
+        raise DecodingError(f"Jogo deve conter 6 dezenas, obtido {len(dezenas)}.")
+    if len(set(dezenas)) != 6:
+        raise DecodingError(f"Jogo contém dezenas duplicadas: {dezenas}.")
+    if not all(1 <= d <= 60 for d in dezenas):
+        raise DecodingError(f"Dezenas fora do intervalo [1, 60]: {dezenas}.")
+    if not all(dezenas[k] < dezenas[k + 1] for k in range(5)):
+        raise DecodingError(f"Dezenas fora de ordem estrita: {dezenas}.")
 
-    return (dezenas[0], dezenas[1], dezenas[2], dezenas[3], dezenas[4], dezenas[5])
+    return (int(dezenas[0]), int(dezenas[1]), int(dezenas[2]), int(dezenas[3]), int(dezenas[4]), int(dezenas[5]))
 
 
 def decode_batch_dp(

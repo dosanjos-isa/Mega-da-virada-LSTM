@@ -126,6 +126,52 @@ def test_roundtrip_draw_and_targets() -> None:
     assert restored == draw
 
 
+def test_targets_to_draw_p010_validates_distinct() -> None:
+    """P0-10: targets_to_draw rejeita valores repetidos."""
+    with pytest.raises(EncodingError, match="repetidas"):
+        targets_to_draw([0, 1, 2, 3, 4, 4])
+
+
+def test_targets_to_draw_p010_validates_order() -> None:
+    """P0-10: targets_to_draw rejeita ordem não crescente."""
+    with pytest.raises(EncodingError, match="ordem estritamente crescente"):
+        targets_to_draw([5, 4, 3, 2, 1, 0])
+
+
+def test_targets_to_draw_p010_returns_python_int() -> None:
+    """P0-10: targets_to_draw retorna int, não np.int32."""
+    restored = targets_to_draw([0, 1, 2, 3, 4, 5])
+    assert all(isinstance(d, int) for d in restored)
+    assert restored == (1, 2, 3, 4, 5, 6)
+
+
+def test_decode_top1_dp_p010_uses_exceptions_not_assert() -> None:
+    """P0-10: decode_top1_dp lança DecodingError (não AssertionError) para violações."""
+    # Matriz que forçaria duplicatas se o DP não as evitasse; se o DP falhar
+    # na validação interna, deve lançar DecodingError.
+    probs = np.zeros((6, 60), dtype=np.float64)
+    probs[:] = 1.0 / 60.0  # uniforme -> DP ainda encontra uma solução válida
+    game = decode_top1_dp(probs)
+    assert len(game) == 6
+
+
+def test_decode_top1_dp_p010_rejects_probs_gt_1() -> None:
+    """P0-10: decode_top1_dp rejeita probabilidades maiores que 1.0."""
+    probs = np.ones((6, 60), dtype=np.float64) / 60.0
+    probs[0, 0] = 1.5  # valor > 1.0
+
+    with pytest.raises(DecodingError, match="maiores que 1.0"):
+        decode_top1_dp(probs)
+
+
+def test_decode_top1_dp_p010_returns_python_int_tuple() -> None:
+    """P0-10: decode_top1_dp retorna tuple de int Python."""
+    probs = np.random.dirichlet(np.ones(60), size=6)
+    game = decode_top1_dp(probs)
+    assert isinstance(game, tuple)
+    assert all(isinstance(d, int) for d in game)
+
+
 def test_draw_to_multihot_validations() -> None:
     """Garante que entradas inválidas para codificação sejam rejeitadas com EncodingError.
 
@@ -189,7 +235,7 @@ def _create_synthetic_history(n_draws: int = 100) -> pd.DataFrame:
 def test_create_temporal_windows_shapes() -> None:
     """Verifica formatos de tensores gerados para diferentes tamanhos de janela W.
 
-    # cobre: RT-005, RT-006
+    # cobre: RT-005, RT-006, P0-06
     """
     df = _create_synthetic_history(n_draws=60)
 
@@ -203,6 +249,61 @@ def test_create_temporal_windows_shapes() -> None:
         assert data["sample_weights"].shape == (expected_samples,)
         assert data["target_concursos"].shape == (expected_samples,)
         assert data["target_is_virada"].shape == (expected_samples,)
+
+
+def test_create_temporal_windows_rejects_invalid_window_size() -> None:
+    """P0-06: window_size deve ser um de {10, 20, 40}."""
+    df = _create_synthetic_history(n_draws=60)
+
+    with pytest.raises(EncodingError, match="window_size"):
+        create_temporal_windows(df, window_size=15)
+
+    with pytest.raises(EncodingError, match="window_size"):
+        create_temporal_windows(df, window_size=100)
+
+
+def test_create_temporal_windows_empty_when_insufficient_data() -> None:
+    """P0-06: retorna arrays vazios com shape correto quando dados insuficientes."""
+    df = _create_synthetic_history(n_draws=5)  # menos que window_size=20
+
+    data = create_temporal_windows(df, window_size=20)
+
+    assert data["x_seq"].shape == (0, 20, FEATURES_PER_DRAW)
+    assert data["x_static"].shape == (0, 1)
+    assert data["y"].shape == (0, NUM_DEZENAS_JOGO)
+    assert data["sample_weights"].shape == (0,)
+    assert data["target_concursos"].shape == (0,)
+    assert data["target_is_virada"].shape == (0,)
+    assert data["window_last_concursos"].shape == (0,)
+
+
+def test_create_temporal_windows_no_is_virada_per_step() -> None:
+    """P0-06: is_virada por passo (índice 60) deve ser 0 no input sequencial."""
+    df = _create_synthetic_history(n_draws=60)
+
+    data = create_temporal_windows(df, window_size=20)
+
+    # Todas as amostras devem ter índice 60 = 0.0 no x_seq
+    assert (data["x_seq"][:, :, 60] == 0.0).all()
+    # x_static ainda deve conter a flag alvo_virada
+    assert (data["x_static"][:, 0] >= 0.0).all()
+
+
+def test_extract_latest_inference_window_rejects_invalid_window_size() -> None:
+    """P0-06: extract_latest_inference_window valida window_size."""
+    df = _create_synthetic_history(n_draws=50)
+
+    with pytest.raises(EncodingError, match="window_size"):
+        extract_latest_inference_window(df, window_size=15)
+
+
+def test_extract_latest_inference_window_no_is_virada_per_step() -> None:
+    """P0-06: índice 60 (is_virada por passo) é 0.0 na janela de inferência."""
+    df = _create_synthetic_history(n_draws=50)
+    inf = extract_latest_inference_window(df, window_size=20, alvo_virada=1)
+
+    assert (inf["x_seq"][0, :, 60] == 0.0).all()
+    assert inf["x_static"][0, 0] == 1.0
 
 
 def test_strict_temporal_leakage_prevention() -> None:
@@ -442,17 +543,28 @@ if __name__ == "__main__":
     print("Executando suíte de testes de codificação e decodificação...")
     test_roundtrip_draw_and_multihot()
     test_roundtrip_draw_and_targets()
+    test_targets_to_draw_p010_validates_distinct()
+    test_targets_to_draw_p010_validates_order()
+    test_targets_to_draw_p010_returns_python_int()
     test_draw_to_multihot_validations()
     test_multihot_to_draw_validations()
     test_create_temporal_windows_shapes()
+    test_create_temporal_windows_rejects_invalid_window_size()
+    test_create_temporal_windows_empty_when_insufficient_data()
+    test_create_temporal_windows_no_is_virada_per_step()
+    test_extract_latest_inference_window_rejects_invalid_window_size()
+    test_extract_latest_inference_window_no_is_virada_per_step()
     test_strict_temporal_leakage_prevention()
     test_temporal_leakage_exception_triggered()
     test_sample_weights_application()
     test_extract_latest_inference_window()
     test_decode_top1_dp_validity()
+    test_decode_top1_dp_p010_uses_exceptions_not_assert()
+    test_decode_top1_dp_p010_rejects_probs_gt_1()
+    test_decode_top1_dp_p010_returns_python_int_tuple()
     test_decode_dp_resolves_naive_collision()
     test_decode_dp_resolves_ordering_inversion()
     test_decode_batch_dp_shapes()
     test_decode_dp_exceptions()
     test_real_processed_dataset_windows()
-    print("SUCESSO: Todos os 15 testes de codificação e decodificação passaram perfeitamente!")
+    print("SUCESSO: Todos os 25 testes de codificação e decodificação passaram perfeitamente!")

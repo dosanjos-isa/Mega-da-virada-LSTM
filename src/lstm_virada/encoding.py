@@ -194,21 +194,42 @@ def draw_to_targets(draw: Sequence[int]) -> np.ndarray:
 def targets_to_draw(targets: Sequence[int]) -> tuple[int, ...]:
     """Converte classes-alvo zero-based [0, 59] de volta para dezenas (1 a 60).
 
-    # cobre: RT-005
+    # cobre: RT-005, P0-10
 
     Args:
-        targets: Sequência de 6 inteiros em [0, 59].
+        targets: Sequência de 6 inteiros em [0, 59], em ordem estritamente
+            crescente e sem repetições.
 
     Returns:
-        Tupla de 6 dezenas em [1, 60].
+        Tupla de 6 dezenas em [1, 60], como int (não np.int32).
+
+    Raises:
+        EncodingError: Se a quantidade não for 6, se houver valores fora de
+            [0, 59], se houver repetições ou se não estiverem em ordem
+            estritamente crescente.
     """
     if len(targets) != NUM_DEZENAS_JOGO:
         raise EncodingError(f"Esperados {NUM_DEZENAS_JOGO} alvos, recebido: {len(targets)}.")
 
-    if not all(0 <= t < NUM_CLASSES for t in targets):
-        raise EncodingError(f"Alvos contêm valores fora da faixa [0, {NUM_CLASSES - 1}]: {targets}.")
+    targets_list = list(targets)
 
-    return tuple(t + 1 for t in targets)
+    if not all(0 <= t < NUM_CLASSES for t in targets_list):
+        raise EncodingError(f"Alvos contêm valores fora da faixa [0, {NUM_CLASSES - 1}]: {targets_list}.")
+
+    # P0-10: validar distinção (sem repetições).
+    if len(set(targets_list)) != NUM_DEZENAS_JOGO:
+        raise EncodingError(
+            f"Alvos contêm dezenas repetidas: {targets_list}."
+        )
+
+    # P0-10: validar ordem estritamente crescente (d1 < d2 < ... < d6).
+    for i in range(1, NUM_DEZENAS_JOGO):
+        if targets_list[i] <= targets_list[i - 1]:
+            raise EncodingError(
+                f"Alvos devem estar em ordem estritamente crescente: {targets_list}."
+            )
+
+    return tuple(int(t + 1) for t in targets_list)
 
 
 # ==============================================================================
@@ -226,50 +247,72 @@ def create_temporal_windows(
     exclusivamente pelos concursos nos índices [t - window_size, t - 1].
     O concurso t (alvo) NUNCA é incluído na janela sequencial de entrada.
 
-    # cobre: RT-005, RT-006
+    # cobre: RT-005, RT-006, P0-06
 
     Args:
-        df: DataFrame ordenado por Concurso com colunas ['Concurso', 'is_virada', 'N1'..'N6'].
-        window_size: Tamanho da janela W (default: 20).
+        df: DataFrame ordenado por Concurso com colunas ['concurso', 'is_virada', 'd1'..'d6'].
+        window_size: Tamanho da janela W. Deve ser um de {10, 20, 40} (default: 20).
         target_virada_only: Se True, filtra apenas amostras cujo alvo é Mega da Virada.
         sample_weight_regular: Peso alpha para concursos regulares (Virada tem peso 1.0 fixo).
 
     Returns:
         Dicionário com arrays NumPy:
-        - "x_seq": (N, W, 61) float32
-        - "x_static": (N, 1) float32 (alvo_virada)
-        - "y": (N, 6) int32 (alvos das 6 cabeças)
-        - "sample_weights": (N,) float32
-        - "target_concursos": (N,) int64
-        - "target_is_virada": (N,) int32
-        - "window_last_concursos": (N,) int64 (último concurso de cada janela, para auditoria)
+        - "x_seq": (N, W, 61) float32. Pode ser (0, W, 61) se não houver amostras.
+        - "x_static": (N, 1) float32 (alvo_virada).
+        - "y": (N, 6) int32 (alvos das 6 cabeças).
+        - "sample_weights": (N,) float32.
+        - "target_concursos": (N,) int64.
+        - "target_is_virada": (N,) int32.
+        - "window_last_concursos": (N,) int64 (último concurso de cada janela, para auditoria).
 
     Raises:
-        EncodingError: Se os dados forem insuficientes ou o formato for inválido.
+        EncodingError: Se window_size não estiver em {10, 20, 40} ou o formato for inválido.
         TemporalLeakageError: Se houver qualquer sobreposição entre janela e alvo.
     """
-    if window_size < 1:
-        raise EncodingError(f"Tamanho de janela deve ser positivo, recebido: {window_size}.")
+    # P0-06: window_size deve ser um dos valores permitidos (10, 20, 40).
+    if window_size not in ALLOWED_WINDOW_SIZES:
+        raise EncodingError(
+            f"window_size deve ser um de {ALLOWED_WINDOW_SIZES}, recebido: {window_size}."
+        )
 
     conc_col, dez_cols, virada_col = _resolve_dataframe_columns(df)
 
     total_rows = len(df)
-    if total_rows <= window_size:
-        raise EncodingError(
-            f"Base com {total_rows} concursos é insuficiente para janela de tamanho {window_size}."
-        )
 
-    # Pré-calcula matriz multi-hot de todos os concursos para eficiência
+    # Se não há dados suficientes para criar ao menos uma janela, retorna
+    # arrays vazios com shape correto em vez de lançar erro (P0-06).
+    if total_rows <= window_size:
+        empty_x_seq = np.zeros((0, window_size, FEATURES_PER_DRAW), dtype=np.float32)
+        empty_x_static = np.zeros((0, 1), dtype=np.float32)
+        empty_y = np.zeros((0, NUM_DEZENAS_JOGO), dtype=np.int32)
+        empty_weights = np.zeros((0,), dtype=np.float32)
+        empty_target_concursos = np.zeros((0,), dtype=np.int64)
+        empty_target_is_virada = np.zeros((0,), dtype=np.int32)
+        empty_window_last = np.zeros((0,), dtype=np.int64)
+        return {
+            "x_seq": empty_x_seq,
+            "x_static": empty_x_static,
+            "y": empty_y,
+            "sample_weights": empty_weights,
+            "target_concursos": empty_target_concursos,
+            "target_is_virada": empty_target_is_virada,
+            "window_last_concursos": empty_window_last,
+        }
+
+    # Pré-calcula matriz multi-hot de todos os concursos para eficiência.
     # Shape: (total_rows, 61)
     concurso_arr = df[conc_col].to_numpy(dtype=np.int64)
     is_virada_arr = df[virada_col].to_numpy(dtype=np.int32)
     dezenas_matrix = df[dez_cols].to_numpy(dtype=np.int32)
 
+    # P0-06: is_virada por passo é removido do input sequencial (índice 60
+    # fica sempre em 0.0). A flag de Virada vai apenas no contexto estático
+    # x_static (alvo_virada), prevenindo vazamento de informação do alvo.
     all_multihot = np.zeros((total_rows, FEATURES_PER_DRAW), dtype=np.float32)
     for r in range(total_rows):
         for dez in dezenas_matrix[r]:
             all_multihot[r, dez - 1] = 1.0
-        all_multihot[r, 60] = float(is_virada_arr[r])
+        # Índice 60 (is_virada por passo) permanece em 0.0 por construção.
 
     # Pré-calcula alvos para todas as linhas (índices zero-based 0 a 59)
     all_targets = dezenas_matrix - 1
@@ -336,23 +379,35 @@ def extract_latest_inference_window(
 ) -> dict[str, np.ndarray | int]:
     """Extrai a janela temporal mais recente do histórico para inferência operacional.
 
-    # cobre: RT-005, RG-001
+    # cobre: RT-005, RG-001, P0-06
 
     Args:
         df: DataFrame ordenado por Concurso com os dados históricos consolidados.
-        window_size: Quantidade de sorteios mais recentes a incluir na janela (default: 20).
-        alvo_virada: Flag do contexto estático para o sorteio a prever (padrão: 1 para Mega da Virada).
+        window_size: Quantidade de sorteios mais recentes a incluir na janela.
+            Deve ser um de {10, 20, 40} (default: 20).
+        alvo_virada: Flag do contexto estático para o sorteio a prever
+            (padrão: 1 para Mega da Virada).
 
     Returns:
         Dicionário com:
-        - "x_seq": Tensor 3D de shape (1, window_size, 61) pronto para model.predict().
+        - "x_seq": Tensor 3D de shape (1, window_size, 61) pronto para
+          model.predict(). Índice 60 (is_virada por passo) é 0.0.
         - "x_static": Tensor 2D de shape (1, 1) com valor [[float(alvo_virada)]].
-        - "last_concurso": Inteiro com o número do concurso mais recente contido na janela.
-        - "expected_target_concurso": Inteiro com o próximo número de concurso esperado.
+        - "last_concurso": Inteiro com o número do concurso mais recente
+          contido na janela.
+        - "expected_target_concurso": Inteiro com o próximo número de
+          concurso esperado.
 
     Raises:
-        EncodingError: Se o DataFrame tiver menos sorteios que window_size.
+        EncodingError: Se window_size não estiver em {10, 20, 40} ou o
+            DataFrame tiver menos sorteios que window_size.
     """
+    # P0-06: window_size deve ser um dos valores permitidos (10, 20, 40).
+    if window_size not in ALLOWED_WINDOW_SIZES:
+        raise EncodingError(
+            f"window_size deve ser um de {ALLOWED_WINDOW_SIZES}, recebido: {window_size}."
+        )
+
     total_rows = len(df)
     if total_rows < window_size:
         raise EncodingError(
@@ -367,13 +422,15 @@ def extract_latest_inference_window(
     last_conc = int(concursos[-1])
 
     dezenas = recent_df[dez_cols].to_numpy(dtype=np.int32)
-    virada_flags = recent_df[virada_col].to_numpy(dtype=np.int32)
+    # P0-06: virada_flags lida mas não usada no input por passo (índice 60
+    # permanece 0.0). A flag de Virada vai apenas no x_static.
+    _ = virada_col  # mantido para compatibilidade de assinatura interna
 
     features = np.zeros((window_size, FEATURES_PER_DRAW), dtype=np.float32)
     for r in range(window_size):
         for dez in dezenas[r]:
             features[r, dez - 1] = 1.0
-        features[r, 60] = float(virada_flags[r])
+        # Índice 60 (is_virada por passo) permanece em 0.0 por construção.
 
     return {
         "x_seq": np.expand_dims(features, axis=0),  # shape: (1, W, 61)
