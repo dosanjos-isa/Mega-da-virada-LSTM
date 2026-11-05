@@ -11,9 +11,12 @@ Contém:
 
 from __future__ import annotations
 
+from lstm_virada.models.fisher import FisherError, FisherModel
 from lstm_virada.models.plackett_luce import PlackettLuce, PlackettLuceError
 
 __all__ = [
     "PlackettLuce",
     "PlackettLuceError",
+    "FisherModel",
+    "FisherError",
 ]
