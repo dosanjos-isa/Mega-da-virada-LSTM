@@ -1,0 +1,25 @@
+# Dependências do ambiente BASE (desenvolvimento e testes)
+# Instalar no venv principal:
+#   .venv\Scripts\Activate.ps1
+#   pip install -r requirements-base.txt
+
+# --- Core e Modelagem (sem TensorFlow) ---
+numpy
+pandas
+scipy
+scikit-learn
+pyyaml
+
+# --- Visualização e EDA ---
+matplotlib
+
+# --- Ambiente Jupyter ---
+jupyterlab
+notebook
+ipykernel
+
+# --- Desenvolvimento e qualidade (RC-002) ---
+pytest
+pytest-cov
+mypy
+ruff

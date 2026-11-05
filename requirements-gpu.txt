@@ -1,29 +1,14 @@
-# Dependências com suporte a GPU via DirectML (Windows)
-# Instalar com: pip uninstall tensorflow && pip install -r requirements-gpu.txt
+# Dependências para ambiente de TREINO (venv dedicado)
+# Usar apenas dentro do .venv-treino:
+#   .venv-treino\Scripts\Activate.ps1
+#   pip install -r requirements-gpu.txt
 #
-# IMPORTANTE: O tensorflow-directml não tem build para Python 3.13+.
-# Se estiver no Python 3.13 (como neste ambiente), use:
-#   - WSL2 com TensorFlow CUDA (Linux), ou
-#   - Downgrade para Python 3.11 ou 3.12 para usar tensorflow-directml nativo no Windows.
+# IMPORTANTE: tensorflow-directml não tem build para Python 3.13+.
+# Se estiver no Python 3.13, use Python 3.11/3.12 ou WSL2 com CUDA.
 
-# --- Core e Modelagem ---
 tensorflow-directml>=2.11
 numpy
 pandas
 scipy
 scikit-learn
 pyyaml
-
-# --- Visualização e EDA ---
-matplotlib
-
-# --- Ambiente Jupyter ---
-jupyterlab
-notebook
-ipykernel
-
-# --- Desenvolvimento e qualidade (RC-002) ---
-pytest
-pytest-cov
-mypy
-ruff

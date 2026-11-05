@@ -19,6 +19,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+# Ambiente base de desenvolvimento (sem TensorFlow)
 dev = [
     "jupyterlab",
     "notebook",
@@ -29,16 +30,23 @@ dev = [
     "ruff",
 ]
 
-# --- GPU (DirectML) — Instalar em vez do tensorflow padrão:
-#   pip uninstall tensorflow
-#   pip install ".[gpu]"
-#
+# Ambiente de TREINO (somente TensorFlow / DirectML)
+# Instalar em venv separado:
+#   python -m venv .venv-treino
+#   .venv-treino\Scripts\Activate.ps1
+#   pip install -r requirements-gpu.txt
+gpu = [
+    "tensorflow-directml>=2.11",
+    "numpy",
+    "pandas",
+    "scipy",
+    "scikit-learn",
+    "pyyaml",
+]
+
 # IMPORTANTE: tensorflow-directml não tem build para Python 3.13+.
 # Use Python 3.11 ou 3.12 para DirectML nativo no Windows, ou WSL2
 # com TensorFlow CUDA no Python 3.13.
-gpu = [
-    "tensorflow-directml>=2.11",
-]
 
 [tool.setuptools.packages.find]
 where = ["src"]

@@ -2,19 +2,31 @@
 # Instalar com: pip install -r requirements.txt
 # Stack definida na especificação (RC-001) e ambiente Jupyter
 
-# --- Core e Modelagem ---
-tensorflow>=2.15
+# --- Core e Modelagem (SEM TensorFlow) ---
+# O TensorFlow só deve ser instalado no venv dedicado de treino (.venv-treino).
+# Veja requirements-gpu.txt e scripts/activar_treino.ps1.
 numpy
 pandas
 scipy
 scikit-learn
 pyyaml
 
-# --- GPU (DirectML) — Instalar em vez do tensorflow padrão:
-#   pip uninstall tensorflow
-#   pip install -r requirements-gpu.txt
-#   (Requer Python 3.11 ou 3.12; não suportado no Python 3.13+)
-# Use apenas em Windows com GPU DirectX 12 (ex: RTX 4050 6GB)
+# --- Visualização e EDA ---
+matplotlib
+
+# --- Ambiente Jupyter ---
+jupyterlab
+notebook
+ipykernel
+
+# --- Desenvolvimento e qualidade (RC-002) ---
+pytest
+pytest-cov
+mypy
+ruff
+
+# --- GPU (DirectML) — veja requirements-gpu.txt ---
+# Não instalar tensorflow direto aqui; use o venv de treino.
 
 # --- Visualização e EDA ---
 matplotlib
