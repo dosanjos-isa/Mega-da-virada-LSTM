@@ -15,6 +15,12 @@ from lstm_virada.models.fisher import FisherError, FisherModel
 from lstm_virada.models.plackett_luce import PlackettLuce, PlackettLuceError
 from lstm_virada.models.positional import PositionalError, PositionalModel
 from lstm_virada.models.seq_pl import SeqPLError, SeqPLModel
+from lstm_virada.models.lstm_seis_cabecas import (
+    LSTMSeisCabecas,
+    LSTMSeisCabecasError,
+    VARIANTE_SET,
+    VARIANTE_CCE,
+)
 
 __all__ = [
     "PlackettLuce",
@@ -25,4 +31,8 @@ __all__ = [
     "PositionalError",
     "SeqPLModel",
     "SeqPLError",
+    "LSTMSeisCabecas",
+    "LSTMSeisCabecasError",
+    "VARIANTE_SET",
+    "VARIANTE_CCE",
 ]
