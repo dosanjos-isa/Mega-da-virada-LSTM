@@ -13,10 +13,13 @@ from __future__ import annotations
 
 from lstm_virada.models.fisher import FisherError, FisherModel
 from lstm_virada.models.plackett_luce import PlackettLuce, PlackettLuceError
+from lstm_virada.models.positional import PositionalError, PositionalModel
 
 __all__ = [
     "PlackettLuce",
     "PlackettLuceError",
     "FisherModel",
     "FisherError",
+    "PositionalModel",
+    "PositionalError",
 ]
