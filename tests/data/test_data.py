@@ -8,9 +8,15 @@ Cobre os requisitos de engenharia de dados:
 """
 
 import importlib
-import re
 from pathlib import Path
+import re
+import sys
 from typing import Any
+
+# Adiciona src ao sys.path para execução direta sem necessidade de variável de ambiente
+_SRC_DIR = Path(__file__).resolve().parent.parent.parent / "src"
+if str(_SRC_DIR) not in sys.path:
+    sys.path.insert(0, str(_SRC_DIR))
 
 import numpy as np
 import pandas as pd
@@ -315,3 +321,30 @@ def test_run_pipeline_end_to_end(tmp_path: Path) -> None:
     assert out_processed.exists()
     assert len(dataset_hash) == 64
     assert dataset_hash == compute_sha256(out_processed)
+
+
+if __name__ == "__main__":
+    import tempfile
+    print("Executando suíte de testes de dados (test_data.py)...")
+    valid_df = sample_valid_df()
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        tmp_p = Path(tmp_dir)
+        test_compute_sha256(tmp_p)
+        test_load_megasena_raw_success()
+        test_load_megasena_raw_file_not_found(tmp_p)
+        test_load_virada_raw_success()
+        test_reconcile_virada_contests_success()
+        test_reconcile_virada_contests_fills_missing_via_date()
+        test_reconcile_virada_contests_divergent_numbers_raises()
+        test_unify_series_no_duplicates_and_flag()
+        test_validate_dataset_quality_success(valid_df)
+        test_validate_dataset_quality_rejects_duplicates(valid_df)
+        test_validate_dataset_quality_rejects_gaps(valid_df)
+        test_validate_dataset_quality_rejects_decreasing_dates(valid_df)
+        test_validate_dataset_quality_rejects_nulls(valid_df)
+        test_validate_dataset_quality_rejects_repeated_numbers(valid_df)
+        test_validate_dataset_quality_rejects_out_of_range_low(valid_df)
+        test_validate_dataset_quality_rejects_out_of_range_high(valid_df)
+        test_export_processed_dataset(tmp_p, valid_df)
+        test_run_pipeline_end_to_end(tmp_p)
+    print("SUCESSO: Todos os 18 testes de ingestão e validação de dados passaram perfeitamente!")

@@ -60,6 +60,7 @@ Mega da virada LSTM/
 │   ├── data/
 │   │   └── test_data.py                        # 18 testes automatizados (RT-001 a RT-004)
 │   ├── encoding/
+│   │   └── test_encoding.py                    # 15 testes automatizados (RT-005, RT-006, DP)
 │   ├── model/
 │   ├── metrics/
 │   └── stats/

@@ -266,7 +266,7 @@ A esteira de desenvolvimento do projeto é organizada em tarefas rastreáveis e 
 |:---:|---|---|---|:---:|
 | **T0** | Estruturação inicial do projeto e ambiente Jupyter | RF-001, RC-001, RC-002 | Diretórios, notebooks, pyproject.toml, requirements.txt, .gitignore | ✅ Concluída |
 | **T1** | Ingestão e validação estrita dos dados | RT-001 a RT-004 | `data.py`, `test_data.py` (18 testes), dataset processado com SHA-256 | ✅ Concluída |
-| **T2** | Codificação e decodificação determinística | RT-005, RT-006 | `encoding.py`, `decode.py`, testes de ida-e-volta e teste contra vazamento | ⏳ Pendente |
+| **T2** | Codificação e decodificação determinística | RT-005, RT-006 | `encoding.py`, `decode.py`, testes de ida-e-volta e teste contra vazamento | ✅ Concluída |
 | **T3** | Implementação dos baselines B0 a B3 | RV-001, RV-004 | `metrics.py` com geradores de referência B0, B1, B2 e B3 | ⏳ Pendente |
 | **T4** | Arquitetura LSTM e treinamento com pesos | RT-007 a RT-013 | `model.py`, `train.py`, suporte a pesos $\alpha$ por amostra | ⏳ Pendente |
 | **T5** | Validação Walk-Forward e métricas primárias | RV-001 a RV-003, RM-001 a RM-003, RV-012 a RV-014 | Pipeline walk-forward 2015–2025, tabelas de métricas M1 a M10 | ⏳ Pendente |
