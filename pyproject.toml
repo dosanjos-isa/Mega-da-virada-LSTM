@@ -29,6 +29,17 @@ dev = [
     "ruff",
 ]
 
+# --- GPU (DirectML) — Instalar em vez do tensorflow padrão:
+#   pip uninstall tensorflow
+#   pip install ".[gpu]"
+#
+# IMPORTANTE: tensorflow-directml não tem build para Python 3.13+.
+# Use Python 3.11 ou 3.12 para DirectML nativo no Windows, ou WSL2
+# com TensorFlow CUDA no Python 3.13.
+gpu = [
+    "tensorflow-directml>=2.11",
+]
+
 [tool.setuptools.packages.find]
 where = ["src"]
 

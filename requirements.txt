@@ -10,6 +10,12 @@ scipy
 scikit-learn
 pyyaml
 
+# --- GPU (DirectML) — Instalar em vez do tensorflow padrão:
+#   pip uninstall tensorflow
+#   pip install -r requirements-gpu.txt
+#   (Requer Python 3.11 ou 3.12; não suportado no Python 3.13+)
+# Use apenas em Windows com GPU DirectX 12 (ex: RTX 4050 6GB)
+
 # --- Visualização e EDA ---
 matplotlib
 
