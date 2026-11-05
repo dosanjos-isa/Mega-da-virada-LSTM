@@ -90,6 +90,7 @@ def sample_valid_df() -> pd.DataFrame:
         "concurso": [1, 2, 3],
         "data": pd.to_datetime(["1996-03-10", "1996-03-17", "1996-03-24"]),
         "ano": [1996, 1996, 1996],
+        "virada_ano": [0, 0, 0],
         "d1": [4, 9, 10],
         "d2": [5, 37, 11],
         "d3": [30, 39, 29],
@@ -117,13 +118,16 @@ def test_compute_sha256(tmp_path: Path) -> None:
 # Testes de Carga de Dados (RT-001, RT-002)
 # ---------------------------------------------------------------------------
 def test_load_megasena_raw_success() -> None:
-    # cobre: RT-001
-    assert MEGASENA_CSV.exists(), f"Arquivo não encontrado: {MEGASENA_CSV}"
+    # cobre: RT-001, P0-04
+    if not MEGASENA_CSV.exists():
+        pytest.skip(f"Arquivo de dados não encontrado: {MEGASENA_CSV}")
     df = load_megasena_raw(MEGASENA_CSV)
 
-    assert len(df) == 3074
-    assert df["concurso"].iloc[0] == 1
-    assert df["concurso"].iloc[-1] == 3074
+    # P0-04: continuidade 1..N sem contagem fixa; N pode mudar com novos concursos.
+    concursos = df["concurso"].values
+    assert concursos[0] == 1
+    assert concursos[-1] == len(df)
+    assert (concursos == np.arange(1, len(df) + 1)).all()
     for col in DEZENA_COLS:
         assert col in df.columns
         assert pd.api.types.is_integer_dtype(df[col])
@@ -294,13 +298,21 @@ def test_validate_dataset_quality_rejects_nulls(sample_valid_df: pd.DataFrame) -
 def test_export_processed_dataset(
     tmp_path: Path, sample_valid_df: pd.DataFrame
 ) -> None:
-    # cobre: RT-004
+    # cobre: RT-004, P0-03
     out_file = tmp_path / "processed.csv"
-    h = export_processed_dataset(sample_valid_df, out_file)
+    h, manifest = export_processed_dataset(sample_valid_df, out_file)
 
     assert out_file.exists()
     assert len(h) == 64
     assert h == compute_sha256(out_file)
+    assert isinstance(manifest, dict)
+    assert "sha256_dataset" in manifest
+    assert manifest["sha256_dataset"] == h
+    assert "versoes" in manifest
+    assert "nota_proveniencia" in manifest
+
+    manifesto_json = tmp_path / "processed.manifest.json"
+    assert manifesto_json.exists()
 
     reloaded = pd.read_csv(out_file)
     assert len(reloaded) == len(sample_valid_df)
@@ -310,17 +322,41 @@ def test_export_processed_dataset(
 # Teste de Integração Ponta a Ponta (RT-001 a RT-004)
 # ---------------------------------------------------------------------------
 def test_run_pipeline_end_to_end(tmp_path: Path) -> None:
-    # cobre: RT-001, RT-002, RT-003, RT-004
+    # cobre: RT-001, RT-002, RT-003, RT-004, P0-01, P0-02, P0-03
     out_processed = tmp_path / "dataset_megasena_virada_processed.csv"
 
-    df_final, dataset_hash = run_pipeline(MEGASENA_CSV, VIRADA_CSV, out_processed)
+    df_final, dataset_hash, manifest = run_pipeline(
+        MEGASENA_CSV, VIRADA_CSV, out_processed
+    )
 
-    assert len(df_final) == 3074
-    assert (df_final["is_virada"] == 1).sum() == 17
+    # P0-04: continuidade 1..N sem contagem fixa de linhas totais.
+    concursos = df_final["concurso"].values
+    assert concursos[0] == 1
+    assert concursos[-1] == len(df_final)
+    assert (concursos == np.arange(1, len(df_final) + 1)).all()
 
     assert out_processed.exists()
     assert len(dataset_hash) == 64
     assert dataset_hash == compute_sha256(out_processed)
+
+    # P0-02: virada_ano presente e correto
+    assert "virada_ano" in df_final.columns
+    assert (df_final.loc[df_final["is_virada"] == 1, "virada_ano"] > 0).all()
+    assert (df_final.loc[df_final["is_virada"] == 0, "virada_ano"] == 0).all()
+    # Virada de 2025 (concurso 2955) deve ter virada_ano = 2025
+    v2025 = df_final[df_final["concurso"] == 2955]
+    assert len(v2025) == 1
+    assert int(v2025.iloc[0]["virada_ano"]) == 2025
+    # Todas as 17 edicoes estao presentes
+    assert sorted(df_final.loc[df_final["is_virada"] == 1, "virada_ano"].tolist()) == list(range(2009, 2026))
+
+    # P0-03: manifesto gerado ao lado do dataset
+    manifesto_json = out_processed.with_suffix(".manifest.json")
+    assert manifesto_json.exists()
+    assert isinstance(manifest, dict)
+    assert manifest["sha256_dataset"] == dataset_hash
+    assert "raw_hashes" in manifest
+    assert "versoes" in manifest
 
 
 if __name__ == "__main__":

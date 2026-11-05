@@ -54,6 +54,10 @@ checkpoints/
 *.keras
 saved_model/
 
+# --- Artefatos gerados pelo pipeline (nao versionar; versionado por hash em manifesto) ---
+data/processed/
+data/manifests/
+
 # ===================================================================
 # PRESERVAR (NÃO ignorar):
 # - spec/

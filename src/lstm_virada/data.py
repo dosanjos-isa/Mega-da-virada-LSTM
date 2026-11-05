@@ -5,13 +5,18 @@ Responsabilidades:
 - Reconciliar concursos de Mega da Virada contra a base oficial (RT-002).
 - Unificar o histórico em uma série temporal única sem duplicatas, marcando
   is_virada = 1 para as Viradas e 0 para regulares (RT-001).
+- Rotular as Mega da Virada com virada_ano (edição 2009-2025), independente do
+  ano civil da data do sorteio (P0-02).
 - Executar validações rigorosas de integridade e qualidade (RT-003).
-- Versionar e exportar o dataset processado com hash SHA-256 (RT-004).
+- Versionar e exportar o dataset processado com hash SHA-256 e manifesto JSON
+  (RT-004, P0-01, P0-03).
 
-Cobre: RT-001, RT-002, RT-003, RT-004
+Cobre: RT-001, RT-002, RT-003, RT-004, P0-01, P0-02, P0-03
 """
 
+import datetime
 import hashlib
+import json
 import os
 import tempfile
 from pathlib import Path
@@ -21,7 +26,33 @@ import numpy as np
 import pandas as pd
 
 DEZENA_COLS: Final[list[str]] = [f"d{i}" for i in range(1, 7)]
-FINAL_COLUMNS: Final[list[str]] = ["concurso", "data", "ano", *DEZENA_COLS, "is_virada"]
+FINAL_COLUMNS: Final[list[str]] = [
+    "concurso", "data", "ano", "virada_ano", *DEZENA_COLS, "is_virada"
+]
+
+# Mapeamento concurso -> virada_ano (edição da Mega da Virada).
+# Fonte: mega_da_virada.csv. A data do sorteio nao e usada para rotular a
+# virada_ano porque a Virada de 2025 ocorreu em 2026-01-01 e as de 2009-2014
+# ocorreram em 30/12; o ano civil quebraria o walk-forward.
+VIRADA_ANO_MAP: Final[dict[int, int]] = {
+    1140: 2009,
+    1245: 2010,
+    1350: 2011,
+    1455: 2012,
+    1560: 2013,
+    1665: 2014,
+    1775: 2015,
+    1890: 2016,
+    2000: 2017,
+    2110: 2018,
+    2220: 2019,
+    2330: 2020,
+    2440: 2021,
+    2550: 2022,
+    2670: 2023,
+    2810: 2024,
+    2955: 2025,
+}
 
 
 class DataValidationError(Exception):
@@ -236,13 +267,19 @@ def unify_series(df_megasena: pd.DataFrame, df_virada: pd.DataFrame) -> pd.DataF
       is_virada = 0.
     - A série é estritamente ordenada pelo número do concurso.
 
+    Atende ao requisito P0-02:
+    - Adiciona a coluna virada_ano (edição 2009-2025), independente do ano civil
+      da data do sorteio.
+    - Corrigi a Virada de 2025 (concurso 2955): virada_ano = 2025, não 2026.
+
     Args:
         df_megasena: DataFrame do histórico geral da Caixa.
         df_virada: DataFrame validado e reconciliado da Mega da Virada.
 
     Returns:
         DataFrame unificado com colunas:
-        ['concurso', 'data', 'ano', 'd1', 'd2', 'd3', 'd4', 'd5', 'd6', 'is_virada']
+        ['concurso', 'data', 'ano', 'virada_ano', 'd1', 'd2', 'd3', 'd4', 'd5',
+        'd6', 'is_virada']
     """
     df_unified = df_megasena.copy()
 
@@ -251,6 +288,32 @@ def unify_series(df_megasena: pd.DataFrame, df_virada: pd.DataFrame) -> pd.DataF
     df_unified["is_virada"] = df_unified["concurso"].apply(
         lambda c: 1 if c in virada_contests else 0
     )
+
+    # P0-02: rotula virada_ano para os concursos de Virada; 0 para regulares.
+    df_unified["virada_ano"] = df_unified["concurso"].apply(
+        lambda c: VIRADA_ANO_MAP.get(int(c), 0)
+    )
+
+    # Sanidade: toda virada deve ter virada_ano > 0; todo regular deve ter 0.
+    viradas = df_unified[df_unified["is_virada"] == 1]
+    if (viradas["virada_ano"] == 0).any():
+        bad = viradas[viradas["virada_ano"] == 0]["concurso"].tolist()
+        raise DataValidationError(
+            f"[P0-02] Concursos marcados como virada sem virada_ano: {bad}"
+        )
+    regulares = df_unified[df_unified["is_virada"] == 0]
+    if (regulares["virada_ano"] != 0).any():
+        bad = regulares[regulares["virada_ano"] != 0]["concurso"].tolist()
+        raise DataValidationError(
+            f"[P0-02] Concursos regulares com virada_ano != 0: {bad}"
+        )
+
+    # Sanidade: Virada de 2025 (concurso 2955) deve ter virada_ano = 2025.
+    v2025 = df_unified[df_unified["concurso"] == 2955]
+    if not v2025.empty and int(v2025.iloc[0]["virada_ano"]) != 2025:
+        raise DataValidationError(
+            "[P0-02] Virada de 2025 (concurso 2955) deve ter virada_ano = 2025."
+        )
 
     df_unified = df_unified.sort_values("concurso").reset_index(drop=True)
     return df_unified[FINAL_COLUMNS]
@@ -326,43 +389,97 @@ def validate_dataset_quality(df: pd.DataFrame) -> None:
             f"{concursos[bad_idx]} (Data: {datas.iloc[bad_idx]} anterior a {datas.iloc[bad_idx - 1]})."
         )
 
+    # 7. virada_ano consistente com is_virada
+    if "virada_ano" in df.columns:
+        viradas = df[df["is_virada"] == 1]
+        if (viradas["virada_ano"] == 0).any():
+            bad = viradas[viradas["virada_ano"] == 0]["concurso"].tolist()
+            raise DataValidationError(
+                f"[P0-02] Concursos marcados como virada sem virada_ano: {bad}"
+            )
+        regulares = df[df["is_virada"] == 0]
+        if (regulares["virada_ano"] != 0).any():
+            bad = regulares[regulares["virada_ano"] != 0]["concurso"].tolist()
+            raise DataValidationError(
+                f"[P0-02] Concursos regulares com virada_ano != 0: {bad}"
+            )
 
-def export_processed_dataset(df: pd.DataFrame, output_path: Path) -> str:
+
+def export_processed_dataset(
+    df: pd.DataFrame,
+    output_path: Path,
+    raw_hashes: dict[str, str] | None = None,
+    commit: str | None = None,
+) -> tuple[str, dict]:
     """Exporta o dataset processado final de forma atômica e retorna seu hash SHA-256.
 
-    Atende ao requisito RT-004:
+    Atende ao requisito RT-004 e P0-03:
     - Gravação segura e atômica via arquivo temporário.
     - Retorna o hash SHA-256 do arquivo gerado para fins de versionamento e rastreabilidade.
+    - Gera um manifesto JSON ao lado do dataset com hashes, proveniência, commit,
+      versões e timestamp.
 
     Args:
         df: DataFrame validado a ser persistido.
         output_path: Caminho de destino do arquivo processado (ex: .csv).
+        raw_hashes: dicionário {caminho_raw: sha256} para registrar no manifesto.
+        commit: hash do commit Git atual para rastreabilidade.
 
     Returns:
-        String hexadecimal com o hash SHA-256 do arquivo salvo.
+        Tupla (hash SHA-256 do arquivo salvo, dicionário do manifesto).
     """
+    import sys
+
+    import numpy as np
+
     output_path.parent.mkdir(parents=True, exist_ok=True)
     temp_file = output_path.with_suffix(f".tmp_{os.getpid()}")
 
     df.to_csv(temp_file, index=False, encoding="utf-8")
     os.replace(temp_file, output_path)
 
-    return compute_sha256(output_path)
+    dataset_hash = compute_sha256(output_path)
+
+    # P0-03: manifesto JSON ao lado do dataset.
+    manifest_path = output_path.with_suffix(".manifest.json")
+    manifest = {
+        "criado_em": datetime.datetime.now(datetime.UTC).isoformat().replace("+00:00", "Z"),
+        "dataset_processado": str(output_path),
+        "sha256_dataset": dataset_hash,
+        "raw_hashes": raw_hashes or {},
+        "commit": commit,
+        "versoes": {
+            "python": sys.version,
+            "numpy": np.__version__,
+            "pandas": pd.__version__,
+        },
+        "nota_proveniencia": (
+            "arquivo bruto megasena-download-resultados.csv ja esta normalizado; "
+            "hash inicial 088db01f... registrado no notebook 00 nao confere com o "
+            "atual 043a16a7...; commit 8efe765 contem a versao normalizada; "
+            "original nao esta no Git. Proveniencia parcial."
+        ),
+    }
+    with open(manifest_path, "w", encoding="utf-8") as f:
+        json.dump(manifest, f, indent=2, ensure_ascii=False)
+
+    return dataset_hash, manifest
 
 
 def run_pipeline(
     raw_megasena_path: Path,
     raw_virada_path: Path,
     processed_output_path: Path,
-) -> tuple[pd.DataFrame, str]:
+) -> tuple[pd.DataFrame, str, dict]:
     """Executa o pipeline completo de ingestão e validação (Tarefa T1).
 
-    Orquestra os requisitos RT-001 a RT-004:
-    1. Carrega dados brutos imutáveis.
+    Orquestra os requisitos RT-001 a RT-004 e P0-01 a P0-03:
+    1. Carrega dados brutos imutáveis e registra seus hashes (P0-01).
     2. Reconcilia os concursos da Mega da Virada contra a base Caixa (RT-002).
     3. Unifica a série temporal sem duplicações com flag is_virada (RT-001).
-    4. Executa a validação de qualidade estrita (RT-003).
-    5. Exporta o dataset final em data/processed/ com hash SHA-256 (RT-004).
+    4. Rotula as Viradas com virada_ano (P0-02).
+    5. Executa a validação de qualidade estrita (RT-003).
+    6. Exporta o dataset final com hash SHA-256 e manifesto JSON (RT-004, P0-03).
 
     Args:
         raw_megasena_path: Caminho para o CSV da Mega-Sena Caixa.
@@ -370,22 +487,36 @@ def run_pipeline(
         processed_output_path: Caminho do arquivo de saída processado.
 
     Returns:
-        Tupla (DataFrame processado e validado, hash SHA-256 do arquivo gerado).
+        Tupla (DataFrame processado e validado, hash SHA-256, manifesto).
     """
-    # 1. Carga dos dados brutos
+    import subprocess
+
+    # 1. Carga dos dados brutos e registro de hashes (P0-01)
+    raw_hashes = {
+        str(raw_megasena_path): compute_sha256(raw_megasena_path),
+        str(raw_virada_path): compute_sha256(raw_virada_path),
+    }
+
     df_mega = load_megasena_raw(raw_megasena_path)
     df_virada = load_virada_raw(raw_virada_path)
 
     # 2. Reconciliação (RT-002)
     df_virada_reconciled = reconcile_virada_contests(df_virada, df_mega)
 
-    # 3. Unificação (RT-001)
+    # 3. Unificação (RT-001) + rotulagem virada_ano (P0-02)
     df_unified = unify_series(df_mega, df_virada_reconciled)
 
     # 4. Validação de qualidade (RT-003)
     validate_dataset_quality(df_unified)
 
-    # 5. Exportação e hash SHA-256 (RT-004)
-    dataset_hash = export_processed_dataset(df_unified, processed_output_path)
+    # 5. Exportação com hash SHA-256 e manifesto JSON (RT-004, P0-03)
+    try:
+        commit = subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip()
+    except Exception:
+        commit = None
 
-    return df_unified, dataset_hash
+    dataset_hash, manifest = export_processed_dataset(
+        df_unified, processed_output_path, raw_hashes=raw_hashes, commit=commit
+    )
+
+    return df_unified, dataset_hash, manifest
