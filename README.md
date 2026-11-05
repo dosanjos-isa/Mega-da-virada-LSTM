@@ -1,41 +1,51 @@
 # LSTM para a Mega da Virada
 
-Projeto de Machine Learning que treina uma rede neural recorrente LSTM sobre o histórico oficial da Mega-Sena para **gerar jogos válidos e diversificados de 6 dezenas para a Mega da Virada**, combinando aprendizado de representações temporais com amostragem estocástica condicionada e rigorosa validação científica.
+Bem-vindo ao projeto **LSTM Mega da Virada**. Este é um experimento reproduzível para testar, de forma estatisticamente honesta, se existe sinal preditivo nos sorteios da Mega-Sena/Mega da Virada.
 
-> **⚠️ Alerta Ético e Científico:** Sorteios lotéricos são desenhados para serem processos i.i.d. (independentes e identicamente distribuídos). **Não há garantia de que um modelo neural extraia sinal preditivo persistente nem garantia de retorno financeiro.** A geração de jogos expressa as preferências probabilísticas aprendidas pela rede a partir dos dados históricos. O objetivo do projeto é a excelência de engenharia de software (SDD), reprodutibilidade e honestidade estatística — a conclusão "sem evidência de sinal" é um resultado científico válido e esperado.
-
----
-
-## 1. Especificação e Fonte de Verdade (SDD)
-
-O projeto é desenvolvido estritamente sob a metodologia **Spec Driven Development (SDD)**:
-
-- 📄 **Especificação Matemática Vigente (v0.3):** [`spec/math_spec.md`](spec/math_spec.md)  
-  *Define modelos probabilísticos (M0–M5), likelihoods, normalizações, baselines B0–B3, avaliação, geração e reprodutibilidade.*
-- 🏛️ **Decisões Arquiteturais (ADRs):**
-  - [`spec/adr/ADR-001-geracao-de-jogos-e-diversidade.md`](spec/adr/ADR-001-geracao-de-jogos-e-diversidade.md)  
-    *Geração de jogos, amostragem sequencial condicionada e filtro de diversidade (`max_shared_numbers`).*
-  - [`spec/adr/ADR-002-modelo-probabilistico-primario.md`](spec/adr/ADR-002-modelo-probabilistico-primario.md)  
-    *Modelo primário M1 (Plackett–Luce), M2 (Fisher) como sensibilidade, M3/M4/M5 como ablações, LSTM como ablação de DL.*
-  - [`spec/adr/ADR-003-likelihood-e-comparabilidade.md`](spec/adr/ADR-003-likelihood-e-comparabilidade.md)  
-    *Likelihood, normalização e comparabilidade entre modelos.*
-- 📝 **Pré-Registro Estatístico:** [`spec/pre_registration.md`](spec/pre_registration.md)  
-  *Hipóteses H1–H7, splits Teste A/Teste B, métricas, testes estatísticos, seeds, poder, critérios de veredito.*
-- 📜 **Versões Anteriores Preservadas:**
-  - [`spec/spec_lstm_mega_virada_v1.md`](spec/spec_lstm_mega_virada_v1.md) (v0.1 — substituída por math_spec.md v0.3)
-  - [`spec/spec_lstm_mega_virada_v0.2.md`](spec/spec_lstm_mega_virada_v0.2.md) (v0.2 — substituída por math_spec.md v0.3)
-
-Se houver qualquer divergência entre a implementação e a especificação, **a spec prevalece**.
+> **⚠️ Alerta Ético e Científico:** Sorteios lotéricos são desenhados para serem processos i.i.d. (independentes e identicamente distribuídos). **Não há garantia de que um modelo neural extraia sinal preditivo persistente nem garantia de retorno financeiro.** O objetivo do projeto é a excelência de engenharia de software (SDD), reprodutibilidade e honestidade estatística — a conclusão "sem evidência de sinal" é um resultado científico válido e esperado.
 
 ---
 
-## 2. Estrutura do Repositório
+## 1. Começando por Aqui
 
-```text
+Se você é novo no projeto, siga esta ordem:
+
+| Passo | O que fazer | Onde |
+|:---:|---|:---|
+| 1 | Leia a especificação matemática | `spec/math_spec.md` |
+| 2 | Leia o pré-registro estatístico | `spec/pre_registration.md` |
+| 3 | Prepare o ambiente base (sem TensorFlow) | Seção 5.1 |
+| 4 | Rode os testes de dados, encoding, splits, baselines, métricas e stats | Seção 6 |
+| 5 | (Opcional) Prepare o ambiente de treino com TensorFlow | Seção 5.2 |
+| 6 | Treine modelos (M1 a M5) com walk-forward | `scripts/run_treino.py` |
+
+---
+
+## 2. Especificação e Fonte de Verdade (SDD)
+
+O projeto é desenvolvido estritamente sob a metodologia **Spec Driven Development (SDD)**. Se houver qualquer divergência entre a implementação e a especificação, **a spec prevalece**.
+
+### Documentos Normativos
+
+| Documento | O que contém | Para que serve |
+|:---|:---|:---|
+| `spec/math_spec.md` | Modelos M0–M5, likelihoods, normalizações, baselines, avaliação, geração | Especificação matemática principal |
+| `spec/pre_registration.md` | Hipóteses H1–H7, splits Teste A/Teste B, métricas, testes, veredito | Pré-registro estatístico |
+| `spec/adr/ADR-001` | Geração de jogos, amostragem sequencial, filtro de diversidade | Decisão arquitetural de geração |
+| `spec/adr/ADR-002` | Modelo primário M1, M2 (sensibilidade), M3/M4/M5 (ablações) | Decisão de modelo |
+| `spec/adr/ADR-003` | Likelihood, normalização, comparabilidade entre modelos | Decisão de comparabilidade |
+| `spec/spec_lstm_mega_virada_v1.md` | Versão histórica (v0.1) | Referência arquivada |
+| `spec/spec_lstm_mega_virada_v0.2.md` | Versão histórica (v0.2) | Referência arquivada |
+
+---
+
+## 3. Estrutura do Repositório
+
+```
 Mega da virada LSTM/
 ├── spec/                                       # Especificação SDD e ADRs
 │   ├── math_spec.md                            # Especificação matemática vigente (v0.3)
-│   ├── pre_registration.md                     # Pré-registro estatístico (hipóteses, splits, veredito)
+│   ├── pre_registration.md                     # Pré-registro estatístico
 │   ├── spec_lstm_mega_virada_v0.2.md          # Versão histórica preservada (v0.2)
 │   ├── spec_lstm_mega_virada_v1.md            # Versão histórica preservada (v0.1)
 │   └── adr/
@@ -120,19 +130,25 @@ Mega da virada LSTM/
 O sistema foi desenhado para **desacoplar o treinamento da inferência**: um modelo treinado e salvo pode gerar novos bilhetes sob demanda sem exigir retreino a cada chamada.
 
 ### Amostragem Sequencial Condicionada
+
 A LSTM produz distribuições softmax nas 6 cabeças posicionais. Para gerar combinações matematicamente válidas ($N1 < N2 < N3 < N4 < N5 < N6$) sem repetições:
+
 1. $d_1$ é amostrado da cabeça 1 truncada no intervalo $[1, 55]$.
 2. Cada $d_i$ subsequente é amostrado da cabeça $i$ truncada estritamente em $[d_{i-1} + 1, 60 - (6 - i)]$.
 3. Todas as combinações geradas são garantidas como válidas **por construção**.
 
 ### Filtro de Diversidade (`max_shared_numbers`)
+
 Para evitar conjuntos de apostas redundantes ao solicitar múltiplos bilhetes (ex: $K = 20$ jogos):
+
 - Um jogo candidato só é aceito se compartilhar no máximo `max_shared_numbers` dezenas (padrão: 4) com qualquer outro jogo já gerado na mesma rodada.
 - Garante variedade estratégica sem deformar as probabilidades aprendidas pela rede.
 
 ---
 
 ## 4. Status de Implementação (Fases 0 a 3)
+
+O projeto foi desenvolvido em três fases, cada uma com um **gate** de aprovação antes de avançar para a próxima.
 
 | Fase | Item | Escopo | Status |
 |:---:|---|---|:---:|
@@ -151,13 +167,17 @@ Para evitar conjuntos de apostas redundantes ao solicitar múltiplos bilhetes (e
 | **—** | Geração de jogos | `generation.py` ausente | ❌ Não iniciado |
 | **—** | Notebooks 02/03 | Placeholders, config inline | ⚠️ Obsoleto |
 
+**Total de testes implementados: 164**, todos passando.
+
 ---
 
 ## 5. Preparação do Ambiente no Windows
 
-O projeto usa **dois ambientes separados**: um para desenvolvimento/testes (sem TensorFlow) e outro dedicado ao treino (com TensorFlow/DirectML).
+O projeto usa **dois ambientes separados**: um para desenvolvimento/testes (sem TensorFlow) e outro dedicado ao treino (com TensorFlow/DirectML). Isso evita instalar o TensorFlow (pacote pesado) se você só quer rodar testes de dados, encoding, splitters, baselines, métricas ou estatística.
 
 ### 5.1 Ambiente Base (desenvolvimento e testes)
+
+Use este ambiente para rodar a suíte completa de testes que **não** depende do TensorFlow (113 testes):
 
 ```powershell
 # 1. Criar o ambiente virtual com Python 3.11
@@ -182,6 +202,19 @@ python -m ipykernel install --user --name lstm-virada --display-name "Python (LS
 jupyter lab
 ```
 
+Após ativar, você pode rodar todos os testes que não dependem de TensorFlow:
+
+```powershell
+python tests\data\test_data.py
+python tests\encoding\test_encoding.py
+python tests\splits\test_splits.py
+python tests\baselines\test_baselines.py
+python tests\metrics\test_metrics.py
+python tests\stats\test_stats.py
+```
+
+---
+
 ### 5.2 Ambiente de Treino (somente quando for treinar modelos)
 
 O treino de modelos neurais (M4 e M5) requer o TensorFlow. Use um **venv dedicado** para não poluir o ambiente base:
@@ -190,7 +223,7 @@ O treino de modelos neurais (M4 e M5) requer o TensorFlow. Use um **venv dedicad
 # 1. Criar e ativar o ambiente de treino
 .\scripts\activar_treino.ps1
 
-# 2. Verificar se a GPU foi detectada (opcional)
+# 2. Verificar se a GPU foi detectada (opcional, recomendado)
 python scripts/check_gpu.py
 
 # 3. Executar o treino walk-forward
@@ -200,7 +233,25 @@ python scripts/run_treino.py --modelo M1 --epocas 100 --seeds 10
 deactivate
 ```
 
-**Nota sobre GPU (DirectML):** O `tensorflow-directml` não tem build para Python 3.13+. Se estiver no Python 3.13, use Python 3.11/3.12 para DirectML nativo no Windows, ou WSL2 com TensorFlow CUDA. O código dos modelos não precisa de alteração — o Keras detecta o dispositivo automaticamente.
+### Modelos disponíveis para treino
+
+| Modelo | Descrição | Requer TensorFlow? |
+|:---|:---|:---|
+| **M1** | Plackett–Luce marginalizado (modelo primário) | Não |
+| **M2** | Fisher (produto condicional, sensibilidade) | Não |
+| **M3** | Produto Posicional normalizado (DP, modo exato) | Não |
+| **M4** | PL Neural Sequencial | Sim (rede neural) |
+| **M5-SET** | LSTM 6 cabeças com likelihood de conjunto | Sim (rede neural) |
+| **M5-CCE** | LSTM 6 cabeças com pseudo-likelihood (CCE) | Sim (rede neural) |
+
+### Nota sobre GPU (DirectML)
+
+O `tensorflow-directml` não tem build para Python 3.13+. Se estiver no Python 3.13:
+
+- **Opção A:** Use Python 3.11 ou 3.12 para DirectML nativo no Windows.
+- **Opção B:** Use WSL2 com TensorFlow CUDA (mantém Python 3.13).
+
+O código dos modelos não precisa de alteração — o Keras detecta o dispositivo automaticamente.
 
 ---
 
@@ -208,17 +259,27 @@ deactivate
 
 Seguindo as convenções de engenharia de software da especificação (RC-002):
 
+### Executar todos os testes que não precisam de TensorFlow (ambiente base)
+
 ```powershell
-# Executar a suíte de testes unitários com pytest
-pytest
+pytest tests\data\ tests\encoding\ tests\splits\ tests\baselines\ tests\metrics\ tests\stats\
+```
 
-# Executar com relatório detalhado de cobertura (mínimo de 85%)
+### Executar com cobertura (mínimo de 85%)
+
+```powershell
 pytest --cov=lstm_virada --cov-report=term-missing
+```
 
-# Verificação estática rigorosa de tipos
+### Verificação estática de tipos
+
+```powershell
 mypy src/
+```
 
-# Verificação de linter e formatação de código
+### Linter e formatação
+
+```powershell
 ruff check src/ tests/
 ruff format src/ tests/
 ```
@@ -230,3 +291,26 @@ ruff format src/ tests/
 - O projeto é executado **exclusivamente de forma local** na máquina do desenvolvedor.
 - Não há treinamento em nuvem, interface gráfica de produto, API pública ou serviço remoto.
 - Os resultados, relatórios de veredito e jogos gerados são apresentados diretamente no terminal em tabelas de texto e renderizados no Jupyter Notebook.
+
+---
+
+## 8. Fluxo Rápido (Resumo)
+
+```powershell
+# Ambiente base
+py -3.11 -m venv .venv
+.\.venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+pip install -e .
+
+# Testar tudo que não precisa de TensorFlow
+pytest tests\data\ tests\encoding\ tests\splits\ tests\baselines\ tests\metrics\ tests\stats\
+
+# Quando quiser treinar modelos neurais
+.\scripts\activar_treino.ps1
+python scripts/check_gpu.py
+python scripts/run_treino.py --modelo M1 --epocas 100 --seeds 10
+deactivate
+```
+
+---
