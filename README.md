@@ -1,18 +1,22 @@
 # LSTM para a Mega da Virada
 
-Projeto experimental que treina e avalia um modelo LSTM sobre o histórico completo de concursos da Mega-Sena, com foco na previsão e análise das dezenas da Mega da Virada.
+Projeto de Machine Learning que treina uma rede neural recorrente LSTM sobre o histórico oficial da Mega-Sena para **gerar jogos válidos e diversificados de 6 dezenas para a Mega da Virada**, combinando aprendizado de representações temporais com amostragem estocástica condicionada e rigorosa validação científica.
 
-> **⚠️ Aviso importante:** Sorteios de loteria são processos desenhados para serem independentes e estocasticamente uniformes. **Não há garantia de que um modelo LSTM consiga extrair sinal preditivo desses dados.** A hipótese de modelagem é experimental. O sucesso deste projeto consiste em construir um pipeline correto, reprodutível e estatisticamente honesto — não em acertar dezenas. A conclusão "sem evidência de sinal" é um resultado científico válido e esperado.
+> **⚠️ Alerta Ético e Científico:** Sorteios lotéricos são desenhados para serem processos i.i.d. (independentes e identicamente distribuídos). **Não há garantia de que um modelo neural extraia sinal preditivo persistente nem garantia de retorno financeiro.** A geração de jogos expressa as preferências probabilísticas aprendidas pela rede a partir dos dados históricos. O objetivo do projeto é a excelência de engenharia de software (SDD), reprodutibilidade e honestidade estatística — a conclusão "sem evidência de sinal" é um resultado científico válido e esperado.
 
 ---
 
-## 1. Especificação e Fonte de Verdade
+## 1. Especificação e Fonte de Verdade (SDD)
 
-A especificação oficial e fonte de verdade do projeto está documentada em:
+O projeto é desenvolvido estritamente sob a metodologia **Spec Driven Development (SDD)**:
 
-📄 [`spec/spec_lstm_mega_virada_v1.md`](spec/spec_lstm_mega_virada_v1.md)
+- 📄 **Especificação Oficial Vigente (v0.2):** [`spec/spec_lstm_mega_virada_v0.2.md`](spec/spec_lstm_mega_virada_v0.2.md)  
+  *Formaliza o processo operacional de geração de jogos (RG-001 a RG-012), amostragem sequencial e métricas de diversidade.*
+- 🏛️ **Decisão Arquitetural:** [`spec/adr/ADR-001-geracao-de-jogos-e-diversidade.md`](spec/adr/ADR-001-geracao-de-jogos-e-diversidade.md)  
+  *Documenta a escolha da amostragem autorregressiva condicionada e controle por dezenas compartilhadas (`max_shared_numbers`).*
+- 📜 **Versão Anterior Preservada (v0.1):** [`spec/spec_lstm_mega_virada_v1.md`](spec/spec_lstm_mega_virada_v1.md)
 
-Todas as decisões arquiteturais, requisitos, testes e critérios de aceite derivam estritamente da especificação (SDD — *Spec Driven Development*). Se houver qualquer divergência entre a implementação e a spec, **a spec prevalece**.
+Se houver qualquer divergência entre a implementação e a especificação, **a spec prevalece**.
 
 ---
 
@@ -20,36 +24,41 @@ Todas as decisões arquiteturais, requisitos, testes e critérios de aceite deri
 
 ```text
 Mega da virada LSTM/
-├── spec/                        # Especificação oficial e ADRs
-│   ├── spec_lstm_mega_virada_v1.md
+├── spec/                                       # Especificação SDD e ADRs
+│   ├── spec_lstm_mega_virada_v0.2.md          # Especificação vigente (v0.2)
+│   ├── spec_lstm_mega_virada_v1.md            # Versão histórica preservada (v0.1)
 │   └── adr/
-├── configs/                     # Configurações versionadas dos experimentos (YAML)
-│   ├── README.md
-│   └── experiments/
+│       └── ADR-001-geracao-de-jogos-e-diversidade.md
+├── configs/                                    # Arquivos YAML versionados (RC-003)
+│   ├── README.md                               # Guia de parâmetros de referência
+│   └── experiments/                            # Configurações de treinos e ablações
 ├── data/
-│   ├── raw/                     # Dados brutos imutáveis
-│   │   ├── megasena-download-resultados.csv
-│   │   └── mega_da_virada.csv
-│   └── processed/               # Datasets processados versionados por SHA-256
-├── notebooks/                   # Exploração interativa e acompanhamento
-│   ├── 00_format_megasena_geral.ipynb # Normalização controlada do histórico Caixa
-│   ├── 01_format_virada.ipynb   # Normalização controlada de mega_da_virada.csv (T0.1)
-│   ├── 02_inspecao_e_eda.ipynb  # Inspeção e Análise Exploratória de Dados (EDA)
-│   └── 03_experimentos.ipynb    # Execução controlada e visualização de resultados
-├── reports/                     # Relatórios consolidados (seção 10)
+│   ├── raw/                                    # Dados brutos imutáveis
+│   │   ├── megasena-download-resultados.csv    # 3.074 concursos oficiais da Caixa
+│   │   └── mega_da_virada.csv                  # 17 concursos da Mega da Virada (2009–2025)
+│   └── processed/                              # Datasets unificados com hash SHA-256
+│       └── dataset_megasena_virada_processed.csv
+├── notebooks/                                  # Ambiente interativo Jupyter
+│   ├── 00_format_megasena_geral.ipynb          # 1º: Normalização do histórico Caixa
+│   ├── 01_format_virada.ipynb                  # 2º: Normalização e conferência da Virada (RT-002)
+│   ├── 02_inspecao_e_eda.ipynb                 # 3º: Análise Exploratória de Dados (EDA)
+│   └── 03_experimentos.ipynb                   # 4º: Treinamento, métricas e geração de jogos
+├── reports/                                    # Logs, auditorias e relatórios de execução
 ├── src/
-│   └── lstm_virada/             # Pacote Python com a lógica pura e reutilizável
+│   └── lstm_virada/                            # Pacote de lógica de produção pura
 │       ├── __init__.py
-│       ├── data.py              # Ingestão, unificação e validação de qualidade (T1)
-│       ├── encoding.py          # Vetorização multi-hot e janelas temporais (T2)
-│       ├── model.py             # Arquitetura LSTM com 6 cabeças softmax (T4)
-│       ├── train.py             # Treinamento com pesos por amostra (T4)
-│       ├── decode.py            # Decodificação dinâmica d1 < ... < d6 (T2)
-│       ├── metrics.py           # Baselines B0..B3 e métricas M1..M10 (T3, T5)
-│       └── stats.py             # Validação estatística, bootstrap e veredito (T6)
-├── tests/                       # Testes automatizados rastreáveis (# cobre: ID)
+│       ├── data.py                             # Ingestão, validação RT-003 e exportação SHA-256 (T1)
+│       ├── encoding.py                         # Multi-hot 61 features e janelas temporais W (T2)
+│       ├── decode.py                           # Decodificação ótima de máxima verossimilhança por DP (T2)
+│       ├── model.py                            # Arquitetura LSTM com 6 cabeças softmax (T4)
+│       ├── train.py                            # Treinamento com pesos α por amostra (T4)
+│       ├── generation.py                        # Geração estocástica de jogos e diversidade (T8)
+│       ├── metrics.py                          # Baselines B0..B3 e métricas M1..M10 (T3, T5)
+│       └── stats.py                            # Testes de hipótese, bootstrap BCa e veredito RV-011 (T6)
+├── tests/                                      # Bateria de testes unitários com rastreabilidade (# cobre: ID)
 │   ├── conftest.py
 │   ├── data/
+│   │   └── test_data.py                        # 18 testes automatizados (RT-001 a RT-004)
 │   ├── encoding/
 │   ├── model/
 │   ├── metrics/
@@ -62,25 +71,45 @@ Mega da virada LSTM/
 
 ---
 
-## 3. Papel dos Notebooks e dos Módulos Python
+## 3. Geração de Jogos e Mecanismo de Diversidade (RG)
 
-- **Módulos Python (`src/lstm_virada/`):** Centralizam toda a lógica de negócio, transformações puras de dados, decodificação, treinamento e testes estatísticos. Garantem reprodutibilidade, tipagem estática e cobertura de testes automatizados.
-- **Notebooks Jupyter (`notebooks/`):** Atuam como camada de experimentação interativa, análise exploratória (EDA), visualização gráfica (Matplotlib) e inspeção controlada. Não duplicam lógica de domínio; consomem os módulos de `src/lstm_virada/`.
+O sistema foi desenhado para **desacoplar o treinamento da inferência**: um modelo treinado e salvo pode gerar novos bilhetes sob demanda sem exigir retreino a cada chamada.
+
+### Amostragem Sequencial Condicionada
+A LSTM produz distribuições softmax nas 6 cabeças posicionais. Para gerar combinações matematicamente válidas ($N1 < N2 < N3 < N4 < N5 < N6$) sem repetições:
+1. $d_1$ é amostrado da cabeça 1 truncada no intervalo $[1, 55]$.
+2. Cada $d_i$ subsequente é amostrado da cabeça $i$ truncada estritamente em $[d_{i-1} + 1, 60 - (6 - i)]$.
+3. Todas as combinações geradas são garantidas como válidas **por construção**.
+
+### Filtro de Diversidade (`max_shared_numbers`)
+Para evitar conjuntos de apostas redundantes ao solicitar múltiplos bilhetes (ex: $K = 20$ jogos):
+- Um jogo candidato só é aceito se compartilhar no máximo `max_shared_numbers` dezenas (padrão: 4) com qualquer outro jogo já gerado na mesma rodada.
+- Garante variedade estratégica sem deformar as probabilidades aprendidas pela rede.
 
 ---
 
-## 4. Dados Brutos
+## 4. Status de Implementação das Tarefas
 
-Os dados brutos estão localizados no diretório `data/raw/` e são tratados como fontes imutáveis:
-
-- `megasena-download-resultados.csv`: Histórico completo oficial de todos os concursos da Mega-Sena.
-- `mega_da_virada.csv`: Histórico dos concursos específicos da Mega da Virada (2009–2025).
+| Tarefa | Escopo | Requisitos | Status |
+|:---:|---|---|:---:|
+| **T0** | Estruturação inicial do repositório, ambiente e notebooks | RF-001, RC-001, RC-002 | ✅ Concluída |
+| **T1** | Ingestão, unificação da série e validação estrita de dados | RT-001, RT-002, RT-003, RT-004 | ✅ Concluída (18 testes) |
+| **T7** | Evolução da SDD (v0.2) e formalização de Geração de Jogos | RG-001 a RG-012 | ✅ Concluída (Spec v0.2 + ADR-001) |
+| **T2** | Codificação multi-hot e decodificação determinística (DP Top-1) | RT-005, RT-006 | ⏳ Próxima |
+| **T3** | Implementação dos baselines de referência B0 a B3 | RV-001, RV-004 | ⏳ Planejada |
+| **T4** | Arquitetura LSTM com 6 cabeças e treinamento com pesos $\alpha$ | RT-007 a RT-013 | ⏳ Planejada |
+| **T8** | Módulo de geração de múltiplos jogos e filtro de diversidade | RG-002 a RG-008, RG-011 | ⏳ Planejada |
+| **T9–T10** | Integração da geração com modelo salvo e configuração YAML | RG-001, RG-004, RG-009, RG-010 | ⏳ Planejada |
+| **T11** | Suíte de testes automatizados para geração de jogos | RG-001 a RG-012 (14 cenários) | ⏳ Planejada |
+| **T5–T6** | Validação Walk-Forward (2015–2025) e veredito estatístico | RV-001 a RV-014, RM-001 a RM-003 | ⏳ Planejada |
+| **T12** | Integração e renderização visual no Jupyter Notebook | RG-012, RF-007 | ⏳ Planejada |
+| **T13–T14** | Avaliação do portfólio de jogos e previsão prospectiva 2026 | RV-003, RG-005, RG-010 | ⏳ Planejada |
 
 ---
 
 ## 5. Preparação do Ambiente no Windows
 
-Execute os seguintes comandos no PowerShell a partir da raiz do projeto:
+Execute os seguintes comandos no PowerShell a partir da raiz do repositório:
 
 ```powershell
 # 1. Criar o ambiente virtual com Python 3.11
@@ -107,29 +136,29 @@ jupyter lab
 
 ---
 
-## 6. Qualidade, Testes e Lint
+## 6. Qualidade de Código e Testes Automatizados
 
-Para assegurar o cumprimento dos critérios de engenharia de software da especificação (RC-002):
+Seguindo as convenções de engenharia de software da especificação (RC-002):
 
 ```powershell
-# Execução da suíte de testes unitários com pytest
+# Executar a suíte de testes unitários com pytest
 pytest
 
-# Execução com relatório de cobertura de testes (mínimo de 85% em dados e métricas)
+# Executar com relatório detalhado de cobertura (mínimo de 85%)
 pytest --cov=lstm_virada --cov-report=term-missing
 
-# Verificação estática de tipos com mypy
+# Verificação estática rigorosa de tipos
 mypy src/
 
-# Linter e formatação com Ruff
+# Verificação de linter e formatação de código
 ruff check src/ tests/
 ruff format src/ tests/
 ```
 
 ---
 
-## 7. Escopo Operacional e Execução Local (v1)
+## 7. Escopo Operacional Local
 
 - O projeto é executado **exclusivamente de forma local** na máquina do desenvolvedor.
-- Não há treinamento em nuvem, interface gráfica de produto, API pública, serviço remoto ou implantação web.
-- Os resultados e o relatório consolidado serão apresentados no ambiente interativo Jupyter e também impressos diretamente no terminal em formato de tabela de texto ao final da execução.
+- Não há treinamento em nuvem, interface gráfica de produto, API pública ou serviço remoto.
+- Os resultados, relatórios de veredito e jogos gerados são apresentados diretamente no terminal em tabelas de texto e renderizados no Jupyter Notebook.
