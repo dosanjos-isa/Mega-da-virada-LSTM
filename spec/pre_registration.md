@@ -103,7 +103,7 @@ Toda análise exploratória deve ser rotulada como tal e reportada com IC, sem $
 ### 4.1 Snapshot
 
 - Dataset processado: `data/processed/dataset_megasena_virada_processed.csv`.
-- Hash SHA-256: `247c36d7e1ba8b84e416b2e84ff7aa25b1db1972ef416c000ef212531e762974`.
+- Hash SHA-256: `3ed2b80b867c6077c9e4b70ef4a902ffb53d94e519b7b925f5098fc4e1ff6aff`.
 - 3.074 concursos, 1–3074, 17 Viradas.
 - Último concurso: 3074, 2026-10-24.
 - Nenhum concurso posterior a 3074 entra na análise confirmatória.
@@ -381,7 +381,7 @@ Este pré-registro será considerado congelado quando:
 
 | Documento | SHA-256 |
 |---|---|
-| `spec/math_spec.md` | `cbf41468b2fb2c51ed691d4f130c2dd3c1fca3193fcd164a1ff56a2ff79fea0d` |
+| `spec/math_spec.md` | `b6848ef1a53106a14c5aff05040d91966ae952adfc3e066d25cca4459c0b11fa` |
 | `spec/adr/ADR-002-modelo-probabilistico-primario.md` | `c222b1f7a834a04b4190bda8beb924dd76cf2d36564c94db30a64f7107c05356` |
 | `spec/adr/ADR-003-likelihood-e-comparabilidade.md` | `35284742678b833f04930e51f6afc291d2691ad74e253ae2d47b8e30fbeacb8f` |
 

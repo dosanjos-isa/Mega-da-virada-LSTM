@@ -81,7 +81,7 @@ Uma **distribuição válida** sobre $\Omega$ é qualquer $p(S) \ge 0$ com $\sum
 |---|---|---|
 | `data/raw/megasena-download-resultados.csv` | Histórico completo da Mega-Sena | `043a16a7044d54eed9388629de3205ea2b8340c8f86b14525d3bed99ac3a6cc8` |
 | `data/raw/mega_da_virada.csv` | Lista das Viradas 2009–2025 | `b0f60e6d325e591af190d8d1f60852a6cb0988931a1aab93dbf782d6822274b6` |
-| `data/processed/dataset_megasena_virada_processed.csv` | Dataset unificado | `247c36d7e1ba8b84e416b2e84ff7aa25b1db1972ef416c000ef212531e762974` |
+| `data/processed/dataset_megasena_virada_processed.csv` | Dataset unificado | `3ed2b80b867c6077c9e4b70ef4a902ffb53d94e519b7b925f5098fc4e1ff6aff` |
 
 Snapshot: **3.074 concursos**, de 1 a 3074, contínuos, sem duplicatas, com **17 Viradas**. Último concurso disponível: 3074, em 2026-10-24.
 
