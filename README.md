@@ -31,9 +31,9 @@ O projeto é desenvolvido estritamente sob a metodologia **Spec Driven Developme
 |:---|:---|:---|
 | `spec/math_spec.md` | Modelos M0–M5, likelihoods, normalizações, baselines, avaliação, geração | Especificação matemática principal |
 | `spec/pre_registration.md` | Hipóteses H1–H7, splits Teste A/Teste B, métricas, testes, veredito | Pré-registro estatístico |
-| `spec/adr/ADR-001` | Geração de jogos, amostragem sequencial, filtro de diversidade | Decisão arquitetural de geração |
-| `spec/adr/ADR-002` | Modelo primário M1, M2 (sensibilidade), M3/M4/M5 (ablações) | Decisão de modelo |
-| `spec/adr/ADR-003` | Likelihood, normalização, comparabilidade entre modelos | Decisão de comparabilidade |
+| `spec/adr/ADR-001-geracao-de-jogos-e-diversidade.md` | Geração de jogos, amostragem sequencial, filtro de diversidade | Decisão arquitetural de geração |
+| `spec/adr/ADR-002-modelo-probabilistico-primario.md` | Modelo primário M1, M2 (sensibilidade), M3/M4/M5 (ablações) | Decisão de modelo |
+| `spec/adr/ADR-003-likelihood-e-comparabilidade.md` | Likelihood, normalização, comparabilidade entre modelos | Decisão de comparabilidade |
 | `spec/spec_lstm_mega_virada_v1.md` | Versão histórica (v0.1) | Referência arquivada |
 | `spec/spec_lstm_mega_virada_v0.2.md` | Versão histórica (v0.2) | Referência arquivada |
 
@@ -57,7 +57,7 @@ Mega da virada LSTM/
 │   ├── activar_treino_wsl.sh                  # Define LD_LIBRARY_PATH para CUDA (WSL2)
 │   ├── run_treino.py                           # Ponto de entrada do treino
 │   ├── run_generation.py                       # Ponto de entrada da geração de jogos
-│   └── check_gpu.py                            # Verificação de GPU via DirectML
+│   └── check_gpu.py                            # Verificação de GPU
 ├── configs/                                    # Arquivos YAML versionados (RC-003)
 │   ├── README.md                               # Guia de parâmetros de referência
 │   └── experiments/                            # Configurações de treinos e ablações
@@ -82,8 +82,8 @@ Mega da virada LSTM/
 │       ├── decode.py                           # Decodificação ótima por DP, exceções em vez de assert (P0-10)
 │       ├── generation.py                        # Geração de jogos com filtros de diversidade e manifesto (P4)
 │       ├── metrics.py                          # Baselines B0–B3, métricas M1–M10 (P0-08)
-│       ├── stats.py                            # Testes de hipótese, bootstrap BCa, veredito (P0-09)
 │       ├── splits.py                           # TemporalSplitter, WalkForwardSplitter, InferenceWindowExtractor (P0-05)
+│       ├── stats.py                            # Testes de hipótese, bootstrap BCa, veredito (P0-09)
 │       ├── baselines.py                        # B0, B1, B2a, B2b, B3 (P0-07)
 │       └── models/                             # Modelos probabilísticos (Fase 3)
 │           ├── __init__.py
@@ -120,12 +120,12 @@ Mega da virada LSTM/
 ├── pyproject.toml
 ├── requirements.txt                            # Ambiente base (sem TensorFlow)
 ├── requirements-base.txt                       # Ambiente base (sem TensorFlow)
-└── requirements-gpu.txt                        # Ambiente de treino (com tensorflow-directml)
+└── requirements-gpu.txt                        # Ambiente de treino (com TensorFlow/CUDA)
 ```
 
 ---
 
-## 3. Geração de Jogos e Mecanismo de Diversidade (RG)
+## 4. Geração de Jogos e Mecanismo de Diversidade (RG)
 
 O sistema foi desenhado para **desacoplar o treinamento da inferência**: um modelo treinado e salvo pode gerar novos bilhetes sob demanda sem exigir retreino a cada chamada.
 
@@ -146,9 +146,9 @@ Para evitar conjuntos de apostas redundantes ao solicitar múltiplos bilhetes (e
 
 ---
 
-## 4. Status de Implementação (Fases 0 a 3)
+## 5. Status de Implementação (Fases 0 a 4)
 
-O projeto foi desenvolvido em três fases, cada uma com um **gate** de aprovação antes de avançar para a próxima.
+O projeto foi desenvolvido em fases, cada uma com um **gate** de aprovação antes de avançar para a próxima.
 
 | Fase | Item | Escopo | Status |
 |:---:|---|---|:---:|
@@ -170,9 +170,9 @@ O projeto foi desenvolvido em três fases, cada uma com um **gate** de aprovaç�
 
 ---
 
-## 5. Preparação do Ambiente no Windows
+## 5. Preparação do Ambiente
 
-O projeto usa **dois ambientes separados**: um para desenvolvimento/testes (sem TensorFlow) e outro dedicado ao treino (com TensorFlow/DirectML). Isso evita instalar o TensorFlow (pacote pesado) se você só quer rodar testes de dados, encoding, splitters, baselines, métricas ou estatística.
+O projeto usa **dois ambientes separados**: um para desenvolvimento/testes (sem TensorFlow) e outro dedicado ao treino (com TensorFlow). Isso evita instalar o TensorFlow (pacote pesado) se você só quer rodar testes de dados, encoding, splitters, baselines, métricas ou estatística.
 
 ### 5.1 Ambiente Base (desenvolvimento e testes)
 
@@ -216,7 +216,7 @@ python tests\stats\test_stats.py
 
 ### 5.2 Ambiente de Treino (somente quando for treinar modelos)
 
-O treino de modelos neurais (M4 e M5) requer o TensorFlow. Use um **venv dedicado** para não poluir o ambiente base:
+O treino de modelos neurais (M4 e M5) requer o TensorFlow. Use um **venv dedicado** para não poluir o ambiente base.
 
 #### Windows (CPU)
 
@@ -240,7 +240,7 @@ O WSL2 permite aceleração por GPU NVIDIA via CUDA para treinamento de modelos 
 
 ```bash
 # 1. Dentro do WSL, criar e ativar o venv dedicado (criado no disco nativo ~ para evitar lentidão do OneDrive)
-source /home/<usuario>/.venv-treino-wsl/bin/activate
+source /home/<usuario>/.venvs/lstm-virada-tf221/bin/activate
 source scripts/activar_treino_wsl.sh   # define LD_LIBRARY_PATH para CUDA
 
 # 2. Verificar se a GPU foi detectada pelo TensorFlow
@@ -255,37 +255,15 @@ deactivate
 
 O script `scripts/configurar_venv_wsl_gpu_native.sh` documenta como criar este venv do zero (instala TensorFlow + bibliotecas CUDA via pip, sem depender de `apt`).
 
-### Modelos disponíveis para treino
-
-| Modelo | Descrição | Requer TensorFlow? |
-|:---|:---|:---|
-| **M1** | Plackett–Luce marginalizado (modelo primário) | Não |
-| **M2** | Fisher (produto condicional, sensibilidade) | Não |
-| **M3** | Produto Posicional normalizado (DP, modo exato) | Não |
-| **M4** | PL Neural Sequencial | Sim (rede neural) |
-| **M5-SET** | LSTM 6 cabeças com likelihood de conjunto | Sim (rede neural) |
-| **M5-CCE** | LSTM 6 cabeças com pseudo-likelihood (CCE) | Sim (rede neural) |
-
-### Nota sobre GPU (DirectML vs CUDA via WSL2)
-
-O `tensorflow-directml` não tem build para Python 3.13+. Se estiver no Python 3.13:
-
-- **Opção A:** Use Python 3.11 ou 3.12 para DirectML nativo no Windows.
-- **Opção B:** Use WSL2 com TensorFlow CUDA (mantém Python 3.13).
-
-O código dos modelos não precisa de alteração — o Keras detecta o dispositivo automaticamente.
-
----
-
-## 5.3 Configuração de GPU no WSL2 (Recomendado para Treino)
+### 5.3 Configuração de GPU no WSL2 (Recomendado para Treino)
 
 O WSL2 permite execução de TensorFlow com suporte a GPU NVIDIA via CUDA, oferecendo desempenho significativamente superior ao CPU para treinamento de modelos neurais (M4 e M5).
 
-### 5.3.1 Ambiente de Treino com GPU no WSL2
+#### 5.3.1 Ambiente de Treino com GPU no WSL2
 
 O ambiente dedicado para treino com GPU fica em `~/.venvs/lstm-virada-tf221/` dentro do WSL2, fora do OneDrive para evitar lentidão de sincronização.
 
-#### Para ativar o ambiente existente:
+**Para ativar o ambiente existente:**
 
 ```bash
 # Dentro do WSL (Ubuntu 22.04):
@@ -298,11 +276,11 @@ python -c "import tensorflow as tf; print(tf.config.list_physical_devices('GPU')
 # Executar treino walk-forward:
 python scripts/run_treino.py --modelo M5-SET --epocas 100 --seeds 10 --window-size 20
 
-# Sair do ambiente:
+# Sair do ambiente quando terminar:
 deactivate
 ```
 
-#### Para criar o ambiente do zero (se necessário):
+**Para criar o ambiente do zero (se necessário):**
 
 ```bash
 # Dentro do WSL:
@@ -311,7 +289,7 @@ bash scripts/configurar_venv_wsl_gpu_native.sh
 
 Este script instala Python 3.10.12, TensorFlow 2.21.0 com suporte CUDA e todas as dependências do projeto, sem depender do `apt` (que pode estar travado no WSL).
 
-### 5.3.2 Verificação de GPU
+#### 5.3.2 Verificação de GPU
 
 Para confirmar que o TensorFlow está usando a GPU:
 
@@ -357,7 +335,7 @@ TensorFlow: 2.21.0
 
 ### 6.1. Por que Plackett–Luce como modelo primário (M1)?
 
-O modelo M1 (Plackett–Luce com marginalização sobre permutações) foi escolhido como modelo primário por cinco razões fundamentais:
+O modelo M1 (Plackett–Luce com marginalização sobre permutações) foi escolhido como modelo primário por cinco razões:
 
 1. **Interpretação física direta:** Corresponde a um modelo de urna com bolas de pesos diferentes, retiradas sem reposição — modelo natural para sorteios lotéricos.
 2. **Likelihood de conjunto bem definida:** A probabilidade de um conjunto $S = \{d_1,\dots,d_6\}$ é a soma sobre as $6! = 720$ permutações possíveis, corrigindo o fato de que a ordem real do sorteio não é observada (apenas a ordenação crescente $d_1 < \dots < d_6$ é conhecida).
@@ -395,9 +373,7 @@ O walk-forward por edição da Virada (2015–2025) testa a capacidade do modelo
 
 ---
 
-## 7. Escopo Operacional Local
-
-## 6. Qualidade de Código e Testes Automatizados
+## 7. Qualidade de Código e Testes Automatizados
 
 Seguindo as convenções de engenharia de software da especificação (RC-002):
 
@@ -428,7 +404,7 @@ ruff format src/ tests/
 
 ---
 
-## 7. Escopo Operacional Local
+## 8. Escopo Operacional Local
 
 - O projeto é executado **exclusivamente de forma local** na máquina do desenvolvedor.
 - Não há treinamento em nuvem, interface gráfica de produto, API pública ou serviço remoto.
@@ -436,7 +412,7 @@ ruff format src/ tests/
 
 ---
 
-## 8. Fluxo Rápido (Resumo)
+## 9. Fluxo Rápido (Resumo)
 
 ```powershell
 # Ambiente base
@@ -454,5 +430,3 @@ python scripts/check_gpu.py
 python scripts/run_treino.py --modelo M1 --epocas 100 --seeds 10
 deactivate
 ```
-
----
