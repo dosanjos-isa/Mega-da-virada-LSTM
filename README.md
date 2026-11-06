@@ -266,7 +266,7 @@ O script `scripts/configurar_venv_wsl_gpu_native.sh` documenta como criar este v
 | **M5-SET** | LSTM 6 cabeças com likelihood de conjunto | Sim (rede neural) |
 | **M5-CCE** | LSTM 6 cabeças com pseudo-likelihood (CCE) | Sim (rede neural) |
 
-### Nota sobre GPU (DirectML)
+### Nota sobre GPU (DirectML vs CUDA via WSL2)
 
 O `tensorflow-directml` não tem build para Python 3.13+. Se estiver no Python 3.13:
 
@@ -276,6 +276,126 @@ O `tensorflow-directml` não tem build para Python 3.13+. Se estiver no Python 3
 O código dos modelos não precisa de alteração — o Keras detecta o dispositivo automaticamente.
 
 ---
+
+## 5.3 Configuração de GPU no WSL2 (Recomendado para Treino)
+
+O WSL2 permite execução de TensorFlow com suporte a GPU NVIDIA via CUDA, oferecendo desempenho significativamente superior ao CPU para treinamento de modelos neurais (M4 e M5).
+
+### 5.3.1 Ambiente de Treino com GPU no WSL2
+
+O ambiente dedicado para treino com GPU fica em `~/.venvs/lstm-virada-tf221/` dentro do WSL2, fora do OneDrive para evitar lentidão de sincronização.
+
+#### Para ativar o ambiente existente:
+
+```bash
+# Dentro do WSL (Ubuntu 22.04):
+source /home/matheus_pinheiro/.venvs/lstm-virada-tf221/bin/activate
+source scripts/activar_treino_wsl.sh   # define LD_LIBRARY_PATH para CUDA
+
+# Verificar se a GPU foi detectada pelo TensorFlow:
+python -c "import tensorflow as tf; print(tf.config.list_physical_devices('GPU'))"
+
+# Executar treino walk-forward:
+python scripts/run_treino.py --modelo M5-SET --epocas 100 --seeds 10 --window-size 20
+
+# Sair do ambiente:
+deactivate
+```
+
+#### Para criar o ambiente do zero (se necessário):
+
+```bash
+# Dentro do WSL:
+bash scripts/configurar_venv_wsl_gpu_native.sh
+```
+
+Este script instala Python 3.10.12, TensorFlow 2.21.0 com suporte CUDA e todas as dependências do projeto, sem depender do `apt` (que pode estar travado no WSL).
+
+### 5.3.2 Verificação de GPU
+
+Para confirmar que o TensorFlow está usando a GPU:
+
+```bash
+source /home/matheus_pinheiro/.venvs/lstm-virada-tf221/bin/activate
+source scripts/activar_treino_wsl.sh
+python scripts/check_gpu.py
+```
+
+Saída esperada:
+```
+============================================================
+  Verificação de GPU — Mega da Virada / WSL2 + CUDA
+============================================================
+
+TensorFlow: 2.21.0
+
+=== Verificando GPU no sistema (nvidia-smi / libcuda) ===
+[OK] GPU disponível para o sistema (nvidia-smi):
+       - NVIDIA GeForce RTX 4050 Laptop GPU, 581.86, 6141MiB
+[OK] Biblioteca libcuda.so.1 encontrada no sistema.
+
+=== Verificando GPU no TensorFlow ===
+[OK] 1 GPU(s) detectada(s) pelo TensorFlow:
+       - /physical_device:GPU:0
+
+=== Verificando operação na GPU ===
+[OK] Teste de alocacao na GPU: sucesso
+
+============================================================
+  RESUMO DA VERIFICAÇÃO
+============================================================
+  1. GPU no sistema:          OK
+  2. GPU no TensorFlow:       OK
+  3. Operação na GPU:         OK
+============================================================
+  >>> AMBIENTE VALIDADO — GPU RTX 4050 pronta para treinamento.
+```
+
+---
+
+## 6. Justificativas Metodológicas
+
+### 6.1. Por que Plackett–Luce como modelo primário (M1)?
+
+O modelo M1 (Plackett–Luce com marginalização sobre permutações) foi escolhido como modelo primário por cinco razões fundamentais:
+
+1. **Interpretação física direta:** Corresponde a um modelo de urna com bolas de pesos diferentes, retiradas sem reposição — modelo natural para sorteios lotéricos.
+2. **Likelihood de conjunto bem definida:** A probabilidade de um conjunto $S = \{d_1,\dots,d_6\}$ é a soma sobre as $6! = 720$ permutações possíveis, corrigindo o fato de que a ordem real do sorteio não é observada (apenas a ordenação crescente $d_1 < \dots < d_6$ é conhecida).
+3. **Comparabilidade:** Compartilha a mesma família probabilística com B2b (M1 com pesos empíricos), permitindo isolar o valor do ajuste de máxima verossimilhança em relação a frequências brutas.
+4. **Baixa complexidade:** Apenas 60 pesos (59 graus de liberdade efetivos após a restrição $\sum_i \log w_i = 0$), reduzindo risco de overfitting com 3.074 concursos.
+5. **Independência de histórico:** É um modelo estático (não usa janela temporal), ideal para testar hipótese de viés global de frequência sem confundir com efeitos temporais.
+
+### 6.2. Por que não M3/M4/M5 como modelos primários?
+
+- **M3 (Produto Posicional):** Embora seja a formalização correta da LSTM de 6 cabeças quando normalizada por $Z$, não modela dependência entre posições (as seis cabeças são independentes) e, se treinada com CCE, otimiza pseudo-likelihood, não likelihood de conjunto.
+- **M4 (PL Neural Sequencial):** Modela dependência entre posições mas tem custo de $720 \times 6$ avaliações de rede por concurso, inviável para 3.074 concursos sem orçamento computacional significativo.
+- **M5 (LSTM de 6 cabeças):** Mantida como ablação. Não é Plackett–Luce (não condiciona no prefixo de dezenas já escolhidas). Treinada com CCE, é pseudo-likelihood, não comparável com NLL de conjunto.
+
+### 6.3. Por que B0 (uniforme) é o piso de H1?
+
+A hipótese primária H1 testa se existe **sinal preditivo** nos sorteios. O baseline uniforme B0 ($p(S) = 1/\binom{60}{6}$) representa a ausência absoluta de qualquer viés — ou seja, todos os $\binom{60}{6} = 50.063.860$ conjuntos são igualmente prováveis. Comparar M1 contra B0 testa diretamente a pergunta de pesquisa: **existe algum sinal preditivo além do acaso?**
+
+Comparar M1 apenas com B2b (pesos empíricos) testaria apenas se o ajuste PL agrega valor sobre frequências empíricas, não se há desvio do acaso. Por isso, B2b é hipótese secundária (S2), não primária.
+
+### 6.4. Por que correção de Holm?
+
+As hipóteses secundárias S1–S5 são testadas múltiplas vezes. Sem correção, a probabilidade de erro Tipo I (falso positivo) aumenta com o número de testes. A correção de Holm controla a taxa de erro Tipo I família (FWER) de forma menos conservadora que Bonferroni, mantendo poder estatístico razoável.
+
+### 6.5. Por que Teste A (300 concursos) e não apenas as 11 Viradas?
+
+O Teste B (11 Viradas) tem poder estatístico muito baixo (MDE ≈ 0,75 $\sigma_d$ para log-score). O Teste A (300 concursos regulares) tem poder adequado (MDE ≈ 0,144 $\sigma_d$). O Teste A é a análise confirmatória; o Teste B é secundário e descritivo. Além disso, Teste A e Teste B **não são independentes** para as Viradas de 2024 e 2025, porque os folds treinam com concursos do período de teste do Teste A.
+
+### 6.6. Por que geração de jogos é um experimento, não predição?
+
+O projeto **não busca provar que a loteria é previsível**. A geração de jogos é um **registro operacional** e **experimento estatístico honesto**. Mesmo que um modelo produza jogos com distribuição estatisticamente diferente do acaso em dados históricos, isso **não implica** capacidade preditiva para sorteios futuros, que são i.i.d. (independentes e identicamente distribuídos) por desenho.
+
+### 6.7. Por que walk-forward por edição da Virada?
+
+O walk-forward por edição da Virada (2015–2025) testa a capacidade do modelo de generalizar para concursos futuros usando apenas dados passados. Para cada edição $Y$, treina-se com concursos estritamente anteriores à Virada $Y$ e testa-se na Virada $Y$. Isso respeita a causalidade temporal e evita vazamento de dados.
+
+---
+
+## 7. Escopo Operacional Local
 
 ## 6. Qualidade de Código e Testes Automatizados
 
