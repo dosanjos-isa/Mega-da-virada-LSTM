@@ -13,11 +13,11 @@ Tarefa: T2 — Codificação e decodificação
 
 from __future__ import annotations
 
-from typing import Final, Sequence
+from collections.abc import Sequence
+from typing import Final
+
 import numpy as np
 import pandas as pd
-
-from lstm_virada.data import DEZENA_COLS
 
 # ==============================================================================
 # Constantes do Domínio
@@ -31,11 +31,13 @@ ALLOWED_WINDOW_SIZES: Final[tuple[int, ...]] = (10, 20, 40)
 
 class EncodingError(ValueError):
     """Exceção levantada quando ocorre inconsistência na codificação ou decodificação."""
+
     pass
 
 
 class TemporalLeakageError(RuntimeError):
     """Exceção levantada quando é detectado vazamento de dados temporais na janela."""
+
     pass
 
 
@@ -54,7 +56,9 @@ def _resolve_dataframe_columns(df: pd.DataFrame) -> tuple[str, list[str], str]:
             conc_col = cand
             break
     if conc_col is None:
-        raise EncodingError("DataFrame não contém a coluna de identificação do concurso ('concurso').")
+        raise EncodingError(
+            "DataFrame não contém a coluna de identificação do concurso ('concurso')."
+        )
 
     # Identifica colunas de dezenas
     dez_cols: list[str] | None = None
@@ -65,7 +69,9 @@ def _resolve_dataframe_columns(df: pd.DataFrame) -> tuple[str, list[str], str]:
     elif all(f"n{i}" in cols for i in range(1, 7)):
         dez_cols = [f"n{i}" for i in range(1, 7)]
     else:
-        raise EncodingError("DataFrame não contém as 6 colunas de dezenas (esperado 'd1..d6' ou 'N1..N6').")
+        raise EncodingError(
+            "DataFrame não contém as 6 colunas de dezenas (esperado 'd1..d6' ou 'N1..N6')."
+        )
 
     # Identifica coluna is_virada
     virada_col: str | None = None
@@ -106,9 +112,7 @@ def draw_to_multihot(draw: Sequence[int], is_virada: int | bool = 0) -> np.ndarr
 
     draw_set = set(draw)
     if len(draw_set) != NUM_DEZENAS_JOGO:
-        raise EncodingError(
-            f"Sorteio contém dezenas repetidas: {list(draw)}."
-        )
+        raise EncodingError(f"Sorteio contém dezenas repetidas: {list(draw)}.")
 
     for num in draw:
         if not (1 <= num <= NUM_CLASSES):
@@ -173,7 +177,9 @@ def draw_to_targets(draw: Sequence[int]) -> np.ndarray:
         np.ndarray de 6 inteiros int32 com valores em [0, 59].
     """
     if len(draw) != NUM_DEZENAS_JOGO:
-        raise EncodingError(f"Esperadas {NUM_DEZENAS_JOGO} dezenas, recebido: {len(draw)}.")
+        raise EncodingError(
+            f"Esperadas {NUM_DEZENAS_JOGO} dezenas, recebido: {len(draw)}."
+        )
 
     sorted_draw = tuple(sorted(draw))
     if sorted_draw != tuple(draw):
@@ -209,18 +215,20 @@ def targets_to_draw(targets: Sequence[int]) -> tuple[int, ...]:
             estritamente crescente.
     """
     if len(targets) != NUM_DEZENAS_JOGO:
-        raise EncodingError(f"Esperados {NUM_DEZENAS_JOGO} alvos, recebido: {len(targets)}.")
+        raise EncodingError(
+            f"Esperados {NUM_DEZENAS_JOGO} alvos, recebido: {len(targets)}."
+        )
 
     targets_list = list(targets)
 
     if not all(0 <= t < NUM_CLASSES for t in targets_list):
-        raise EncodingError(f"Alvos contêm valores fora da faixa [0, {NUM_CLASSES - 1}]: {targets_list}.")
+        raise EncodingError(
+            f"Alvos contêm valores fora da faixa [0, {NUM_CLASSES - 1}]: {targets_list}."
+        )
 
     # P0-10: validar distinção (sem repetições).
     if len(set(targets_list)) != NUM_DEZENAS_JOGO:
-        raise EncodingError(
-            f"Alvos contêm dezenas repetidas: {targets_list}."
-        )
+        raise EncodingError(f"Alvos contêm dezenas repetidas: {targets_list}.")
 
     # P0-10: validar ordem estritamente crescente (d1 < d2 < ... < d6).
     for i in range(1, NUM_DEZENAS_JOGO):

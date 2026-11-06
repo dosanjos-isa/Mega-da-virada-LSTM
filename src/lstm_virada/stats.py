@@ -22,19 +22,14 @@ P0-09: implementação de estatística e sanidade.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Final, Sequence
+from typing import Final
 
 import numpy as np
 
 from lstm_virada.metrics import (
-    correcao_holm,
-    delta_log_score_parado,
-    log_score_conjunto,
-    nll_conjunto,
-    teste_sinais_parado,
-    teste_wilcoxon_parado,
-    tamanho_efeito_cohen_d,
     bootstrap_bca_ic_medio,
+    correcao_holm,
+    tamanho_efeito_cohen_d,
 )
 
 NUM_CONCURSOS_SANIDADE: Final[int] = 100
@@ -64,7 +59,9 @@ class Veredito:
     """Veredito padronizado do experimento."""
 
     categoria: str  # "Evidencia", "Inconclusivo", "SemEvidencia", "ErroVazamento"
-    tipo_sinal: str  # "global_frequencia", "ajuste_PL", "temporal_neural", "acerto_portfolio"
+    tipo_sinal: (
+        str  # "global_frequencia", "ajuste_PL", "temporal_neural", "acerto_portfolio"
+    )
     detalhes: dict
 
 
@@ -181,9 +178,7 @@ def sanitidade_rotulos_permutados(
     Returns:
         (aprovou_sanidade, p_valor).
     """
-    p_valor = teste_permutacao_nll(
-        log_p_modelo_permutado, log_p_baseline
-    )
+    p_valor = teste_permutacao_nll(log_p_modelo_permutado, log_p_baseline)
     aprovou = p_valor >= alpha  # não deve rejeitar H0 com rótulos aleatórios
     return aprovou, p_valor
 
@@ -203,9 +198,7 @@ def sanitidade_entradas_aleatorias(
     Returns:
         (aprovou_sanidade, p_valor).
     """
-    p_valor = teste_permutacao_nll(
-        log_p_modelo_entrada_aleatoria, log_p_baseline
-    )
+    p_valor = teste_permutacao_nll(log_p_modelo_entrada_aleatoria, log_p_baseline)
     aprovou = p_valor >= alpha
     return aprovou, p_valor
 
@@ -272,13 +265,10 @@ def veredito_padronizado(
 
     p_rejeitada = p_valor_primario < ALFA_TESTE
     ic_exclui_zero = (
-        ic_95_primario is not None
-        and ic_95_primario[0] > 0
-        and ic_95_primario[1] > 0
+        ic_95_primario is not None and ic_95_primario[0] > 0 and ic_95_primario[1] > 0
     )
     ic_inclui_relevante = (
-        ic_95_primario is not None
-        and ic_95_primario[1] >= LIMIAR_RELEVANCIA_NATS
+        ic_95_primario is not None and ic_95_primario[1] >= LIMIAR_RELEVANCIA_NATS
     )
 
     if p_rejeitada and efeito_relevante and ic_exclui_zero:

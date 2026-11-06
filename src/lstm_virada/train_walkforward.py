@@ -26,15 +26,15 @@ from typing import Final
 import numpy as np
 
 from lstm_virada.models import (
-    FisherModel,
-    LSTMSeisCabecas,
     NUM_CLASSES,
     NUM_DEZENAS_JOGO,
+    VARIANTE_CCE,
+    VARIANTE_SET,
+    FisherModel,
+    LSTMSeisCabecas,
     PlackettLuce,
     PositionalModel,
     SeqPLModel,
-    VARIANTE_CCE,
-    VARIANTE_SET,
 )
 from lstm_virada.splits import WalkForwardSplitter
 
@@ -127,6 +127,67 @@ def _criar_janela_treino(
     )
 
 
+def _montar_janela_alvo(
+    concurso_alvo: int,
+    dezenas_treino: np.ndarray,
+    concursos_treino: np.ndarray,
+    is_virada_treino: np.ndarray,
+    window_size: int = 20,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Constrói a janela de inferência para um concurso alvo.
+
+    A janela contem os window_size concursos imediatamente anteriores ao
+    alvo, selecionados do conjunto de treino do fold. Preserva causalidade
+    estrita (nenhum concurso >= alvo entra na janela).
+
+    Args:
+        concurso_alvo: numero do concurso alvo.
+        dezenas_treino: array (N_treino, 6) com dezenas 1..60.
+        concursos_treino: array (N_treino,) com numeros de concurso.
+        is_virada_treino: array (N_treino,) com flags de Virada.
+        window_size: tamanho da janela W.
+
+    Returns:
+        Tupla (x_seq, x_static) onde x_seq tem shape (1, window_size, 61)
+        e x_static tem shape (1, 1).
+    """
+    n = len(concursos_treino)
+    if n < window_size:
+        return (
+            np.zeros((1, window_size, 61), dtype=np.float32),
+            np.zeros((1, 1), dtype=np.float32),
+        )
+
+    # Encontra o indice do ultimo concurso de treino estritamente anterior ao alvo
+    indices_anteriores = np.nonzero(concursos_treino < concurso_alvo)[0]
+    if len(indices_anteriores) == 0:
+        return (
+            np.zeros((1, window_size, 61), dtype=np.float32),
+            np.zeros((1, 1), dtype=np.float32),
+        )
+
+    idx_ultimo_anterior = indices_anteriores[-1]
+    idx_inicio = max(0, idx_ultimo_anterior - window_size + 1)
+    janela_indices = np.arange(idx_inicio, idx_ultimo_anterior + 1)
+
+    # Se nao há window_size concursos suficientes, preenche com zeros no início
+    n_janela = len(janela_indices)
+    x_seq = np.zeros((1, window_size, 61), dtype=np.float32)
+    if n_janela > 0:
+        multihot = np.zeros((n_janela, 61), dtype=np.float32)
+        for r in range(n_janela):
+            for dez in dezenas_treino[janela_indices[r]]:
+                multihot[r, int(dez) - 1] = 1.0
+        x_seq[0, window_size - n_janela :] = multihot
+
+    # x_static: flag de Virada do alvo (sempre 1 para folds de Virada, mas
+    # usa o valor do alvo se disponível)
+    # Para o fold da Virada, o alvo e uma Virada, então alvo_virada = 1.
+    x_static = np.ones((1, 1), dtype=np.float32)
+
+    return x_seq, x_static
+
+
 def _dividir_treino_validacao(
     janelas: np.ndarray,
     alvos: np.ndarray,
@@ -163,20 +224,33 @@ def _dividir_treino_validacao(
         indice_corte = regulares_indices[-n_val]
         # Encontrar a posição no array original
         corte_pos = np.nonzero(concursos_treino == concursos_treino[indice_corte])[0]
-        if len(corte_pos) > 0:
-            corte_pos = corte_pos[0]
-        else:
-            corte_pos = n - n_val
+        corte_pos = (
+            corte_pos[0] if len(corte_pos) > 0 else len(concursos_treino) - n_val
+        )
 
     if n_val == 0 or corte_pos <= 0:
-        return janelas, alvos, np.zeros((0, janelas.shape[1], janelas.shape[2]), dtype=np.float32), np.zeros((0, alvos.shape[1]), dtype=np.int32), concursos_treino, is_virada_treino
+        return (
+            janelas,
+            alvos,
+            np.zeros((0, janelas.shape[1], janelas.shape[2]), dtype=np.float32),
+            np.zeros((0, alvos.shape[1]), dtype=np.int32),
+            concursos_treino,
+            is_virada_treino,
+        )
 
     janelas_treino = janelas[:corte_pos]
     alvos_treino = alvos[:corte_pos]
     janelas_val = janelas[corte_pos:]
     alvos_val = alvos[corte_pos:]
 
-    return janelas_treino, alvos_treino, janelas_val, alvos_val, concursos_treino, is_virada_treino
+    return (
+        janelas_treino,
+        alvos_treino,
+        janelas_val,
+        alvos_val,
+        concursos_treino,
+        is_virada_treino,
+    )
 
 
 def _treinar_modelo_estatico(
@@ -197,9 +271,7 @@ def _treinar_modelo_estatico(
     elif modelo_nome == "M2":
         modelo_classe = FisherModel
     else:
-        raise TreinoWalkForwardError(
-            f"Modelo estático não suportado: {modelo_nome}"
-        )
+        raise TreinoWalkForwardError(f"Modelo estático não suportado: {modelo_nome}")
 
     for seed in seeds:
         np.random.seed(seed)
@@ -332,16 +404,26 @@ def treinar_walkforward_modelo(
         concurso_alvo = int(concursos[teste_idx[0]])
 
         if modelo_nome in ("M1", "M2"):
-            # Modelo estático: ajuste direto
+            # Modelo estático: ajuste por máxima verossimilhança (MLE).
+            # A avaliação fora da amostra usa o conjunto de teste do fold
+            # (dezenas_teste), NÃO o val_loss interno do treino.
             for seed in seeds:
                 np.random.seed(seed)
-                modelo = (
-                    PlackettLuce()
-                    if modelo_nome == "M1"
-                    else FisherModel()
+                modelo = PlackettLuce() if modelo_nome == "M1" else FisherModel()
+                # MLE real com TensorFlow: Adam, lr=1e-2, max_epochs=100,
+                # early stopping paciência 10, validação cronológica 10%.
+                historico = modelo.treinar_mle(
+                    dados=[tuple(int(d) for d in row) for row in dezenas_treino],
+                    epocas=MAX_EPOCHS,
+                    taxa_aprendizado=1e-2,
+                    paciencia=EARLY_STOPPING_PACIENCIA,
+                    fracao_validacao=VALIDACAO_FRAÇÃO,
+                    seed=seed,
+                    verbose=0,
                 )
-                _ajustar_modelo_estatico(modelo, dezenas_treino)
+                epocas_executadas = len(historico["loss"])
 
+                # AVALIAÇÃO FORA DA AMOSTRA: NLL no conjunto de teste do fold.
                 nll = 0.0
                 for S in dezenas_teste:
                     nll += -modelo.log_prob_conjunto(tuple(int(d) for d in S))
@@ -354,7 +436,7 @@ def treinar_walkforward_modelo(
                         n_treino=len(dezenas_treino),
                         n_teste=len(dezenas_teste),
                         concursos_treino=concursos_treino,
-                        epocas_executadas=1,
+                        epocas_executadas=epocas_executadas,
                         loss=float(nll_medio),
                         modelo_nome=modelo_nome,
                         variacao=None,
@@ -370,7 +452,14 @@ def treinar_walkforward_modelo(
             if len(janelas_treino) == 0:
                 continue
 
-            # Dividir treino/validação cronológica
+            # Pesos por amostra: Virada = 1.0, regular = alpha (padrão 1.0)
+            alpha = 1.0  # configuracao primária do pre-registro (math_spec §6.5)
+            pesos_treino = np.where(
+                is_virada_treino[window_size:] == 1, 1.0, alpha
+            ).astype(np.float32)
+
+            # Dividir treino/validação cronológica (validação exclui Viradas,
+            # último 10% dos concursos regulares do treino)
             (
                 janelas_treino,
                 alvos_treino,
@@ -385,61 +474,105 @@ def treinar_walkforward_modelo(
                 is_virada_treino,
             )
 
+            # Ajustar pesos_treino para o recorte de validação
+            n_treino_ajustado = len(janelas_treino)
+            pesos_treino_ajustados = pesos_treino[:n_treino_ajustado]
+
+            # x_val: [x_seq, x_static] para validacao explícita sem Viradas
+            if len(janelas_val) > 0:
+                x_val_seq = janelas_val
+                np.zeros((len(alvos_val), 1), dtype=np.float32)
+            else:
+                x_val_seq = None
+                alvos_val = None
+
             for seed in seeds:
                 np.random.seed(seed)
-                tf_random_seed = seed  # para TensorFlow
 
                 # Criar modelo baseado no nome
-                if modelo_nome == "M3":
-                    modelo = PositionalModel(
-                        num_classes=NUM_CLASSES,
-                        num_dezenas_jogo=NUM_DEZENAS_JOGO,
+                if modelo_nome in ("M3", "M5-SET", "M5-CCE"):
+                    variante = (
+                        VARIANTE_SET
+                        if modelo_nome in ("M3", "M5-SET")
+                        else VARIANTE_CCE
                     )
-                    # Para M3, precisamos de distribuições positionais empíricas
-                    # estimadas dos dados de treino
-                    _treinar_m3_empirico(modelo, dezenas_treino)
-                    # Avaliar no teste (NLL de conjunto)
-                    nll = 0.0
-                    for S in dezenas_teste:
-                        nll += -modelo.log_prob_conjunto(
-                            tuple(int(d) for d in S)
-                        )
-                    nll_medio = nll / len(dezenas_teste)
-                elif modelo_nome in ("M5-SET", "M5-CCE"):
-                    variante = VARIANTE_SET if modelo_nome == "M5-SET" else VARIANTE_CCE
                     modelo = LSTMSeisCabecas(
                         variante=variante,
                         num_classes=NUM_CLASSES,
                         num_dezenas_jogo=NUM_DEZENAS_JOGO,
                         window_size=window_size,
                     )
-                    historico_treino = modelo.treinar(
+                    modelo.treinar(
                         dados=[tuple(int(d) for d in row) for row in dezenas_treino],
                         janelas=janelas_treino,
-                        alvos_virada=is_virada_treino[: len(janelas_treino)],
+                        alvos_virada=is_virada_treino[
+                            window_size : window_size + len(janelas_treino)
+                        ],
                         epocas=epocas,
                         taxa_aprendizado=1e-3,
+                        sample_weight=pesos_treino_ajustados,
+                        x_val=x_val_seq,
+                        y_val=alvos_val,
                         verbose=0,
                     )
-                    # Usar val_loss como perda do fold (NLL de validação)
-                    val_losses = historico_treino.get("val_loss", [])
-                    nll_medio = float(val_losses[-1]) if val_losses else float(
-                        historico_treino.get("loss", [0.0])[-1]
-                    )
+                    # Avaliar fora da amostra: NLL no conjunto de teste do fold
+                    # usando log_prob_conjunto com janela de inferencia do alvo.
+                    nll = 0.0
+                    n_teste = len(dezenas_teste)
+                    for S in dezenas_teste:
+                        x_seq_alvo, x_static_alvo = _montar_janela_alvo(
+                            concurso_alvo=concurso_alvo,
+                            dezenas_treino=dezenas_treino,
+                            concursos_treino=concursos_treino,
+                            is_virada_treino=is_virada_treino,
+                            window_size=window_size,
+                        )
+                        nll += -modelo.log_prob_conjunto(
+                            tuple(int(d) for d in S),
+                            janela_x_seq=x_seq_alvo,
+                            janela_x_static=x_static_alvo,
+                        )
+                    nll_medio = nll / n_teste if n_teste > 0 else 0.0
                 elif modelo_nome == "M4":
                     modelo = SeqPLModel(
                         num_classes=NUM_CLASSES,
                         num_dezenas_jogo=NUM_DEZENAS_JOGO,
                         window_size=window_size,
                     )
-                    # M4 precisa de janelas para treino
-                    # Para teste simples, vamos pular o treino detalhado do M4
-                    # e usar apenas a verificação de que o modelo pode ser criado
-                    continue
-                else:
-                    raise TreinoWalkForwardError(
-                        f"Modelo não suportado: {modelo_nome}"
+                    modelo.treinar(
+                        dados=[tuple(int(d) for d in row) for row in dezenas_treino],
+                        janelas=janelas_treino,
+                        alvos_virada=is_virada_treino[
+                            window_size : window_size + len(janelas_treino)
+                        ],
+                        epocas=epocas,
+                        taxa_aprendizado=1e-3,
+                        paciencia=EARLY_STOPPING_PACIENCIA,
+                        sample_weight=pesos_treino_ajustados,
+                        x_val=x_val_seq,
+                        y_val=alvos_val,
+                        verbose=0,
                     )
+                    # Avaliar fora da amostra: NLL no conjunto de teste do fold
+                    # usando log_prob_conjunto com janela de inferencia do alvo.
+                    nll = 0.0
+                    n_teste = len(dezenas_teste)
+                    for S in dezenas_teste:
+                        x_seq_alvo, x_static_alvo = _montar_janela_alvo(
+                            concurso_alvo=concurso_alvo,
+                            dezenas_treino=dezenas_treino,
+                            concursos_treino=concursos_treino,
+                            is_virada_treino=is_virada_treino,
+                            window_size=window_size,
+                        )
+                        nll += -modelo.log_prob_conjunto(
+                            tuple(int(d) for d in S),
+                            janela_x_seq=x_seq_alvo,
+                            janela_x_static=x_static_alvo,
+                        )
+                    nll_medio = nll / n_teste if n_teste > 0 else 0.0
+                else:
+                    raise TreinoWalkForwardError(f"Modelo não suportado: {modelo_nome}")
 
                 resultados_folds.append(
                     ResultadoFold(

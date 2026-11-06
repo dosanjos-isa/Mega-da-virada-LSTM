@@ -19,7 +19,6 @@ P1-03: implementacao do M3.
 
 from __future__ import annotations
 
-from itertools import combinations
 from typing import Final
 
 import numpy as np
@@ -97,23 +96,23 @@ class PositionalModel:
                 extras = fornecidas - esperadas
                 msg = ""
                 if faltando:
-                    msg += f"Posicao {j+1}: dezenas faltando {sorted(faltando)}. "
+                    msg += f"Posicao {j + 1}: dezenas faltando {sorted(faltando)}. "
                 if extras:
-                    msg += f"Posicao {j+1}: dezenas extras {sorted(extras)}. "
+                    msg += f"Posicao {j + 1}: dezenas extras {sorted(extras)}. "
                 raise PositionalError(msg.strip())
 
             soma = 0.0
             for c, p in dist.items():
                 if p < 0:
                     raise PositionalError(
-                        f"Posicao {j+1}: probabilidade negativa para dezena {c}: {p}."
+                        f"Posicao {j + 1}: probabilidade negativa para dezena {c}: {p}."
                     )
                 soma += p
                 P[j, int(c) - 1] = p
 
             if not np.isclose(soma, 1.0, atol=1e-10):
                 raise PositionalError(
-                    f"Posicao {j+1}: distribuicao nao soma 1 (soma={soma})."
+                    f"Posicao {j + 1}: distribuicao nao soma 1 (soma={soma})."
                 )
 
         self._P = P
@@ -148,9 +147,7 @@ class PositionalModel:
 
         Z = float(np.sum(F[self._k - 1, :]))
         if Z <= 0:
-            raise PositionalError(
-                "Z calculado é zero; verifique as distribuições P_j."
-            )
+            raise PositionalError("Z calculado é zero; verifique as distribuições P_j.")
         return Z
 
     def z(self) -> float:
@@ -177,9 +174,7 @@ class PositionalModel:
         S_ordenado = tuple(sorted(int(d) for d in S))
 
         if len(set(S_ordenado)) != self._k:
-            raise PositionalError(
-                f"Dezenas devem ser distintas: {S_ordenado}."
-            )
+            raise PositionalError(f"Dezenas devem ser distintas: {S_ordenado}.")
 
         if not all(1 <= d <= self._N for d in S_ordenado):
             raise PositionalError(
@@ -265,10 +260,13 @@ class PositionalModel:
                     best_prev_val = dp[j - 1, cand_prev]
                     best_prev_idx = cand_prev
 
-                if best_prev_idx != -1 and best_prev_val > neg_inf / 2:
-                    if self._P[j, c] > 0:
-                        dp[j, c] = best_prev_val + np.log(self._P[j, c])
-                        bp[j, c] = best_prev_idx
+                if (
+                    best_prev_idx != -1
+                    and best_prev_val > neg_inf / 2
+                    and self._P[j, c] > 0
+                ):
+                    dp[j, c] = best_prev_val + np.log(self._P[j, c])
+                    bp[j, c] = best_prev_idx
 
         # Encontrar a melhor classe final
         c_last_candidates = range(self._k - 1, self._N)
@@ -291,6 +289,78 @@ class PositionalModel:
                 curr = bp[j, curr]
 
         return tuple(int(d + 1) for d in selected)
+
+    # ------------------------------------------------------------------
+    # Probabilidades de inclusao marginal p_i = P(i in S) (Brier score)
+    # ------------------------------------------------------------------
+    def prob_inclusao(self) -> np.ndarray:
+        """Retorna p_i = P(i em S) para cada dezena i em [1, N].
+
+        Calculado exatamente por DP: p_i = soma_{j=1..k} P(d_j = i),
+        onde P(d_j = i) eh a margem posicional da dezena i na posicao j,
+        normalizada por Z.
+
+        Returns:
+            np.ndarray shape (N,) com p_i para cada dezena (índice 0 = dezena 1).
+        """
+        if self._P is None:
+            raise PositionalError(
+                "Modelo nao ajustado. Chame ajustar_distribuicoes() primeiro."
+            )
+
+        k = self._k
+        N = self._N
+        P = self._P
+        Z = self.z()
+
+        # F_fwd[j, c] = soma sobre d_1<...<d_j=c de prod_{l=1..j} P_l(d_l)
+        F_fwd = np.zeros((k, N), dtype=np.float64)
+        max_c0 = N - k
+        for c in range(0, max_c0 + 1):
+            F_fwd[0, c] = P[0, c]
+        for j in range(1, k):
+            min_c = j
+            max_c = N - (k - j)
+            prefix_sum = 0.0
+            for c in range(min_c, max_c + 1):
+                prefix_sum += F_fwd[j - 1, c - 1]
+                F_fwd[j, c] = P[j, c] * prefix_sum
+
+        # F_bwd[j, c] = soma sobre d_j=c<d_{j+1}<...<d_k de prod_{l=j..k} P_l(d_l)
+        F_bwd = np.zeros((k, N), dtype=np.float64)
+        # Ultima posicao j=k-1: d_k em k..N
+        for c in range(k - 1, N):
+            F_bwd[k - 1, c] = P[k - 1, c]
+        for j in range(k - 2, -1, -1):
+            min_c = j
+            max_c = N - (k - j)
+            sufixo_sum = 0.0
+            for c in range(max_c, min_c - 1, -1):
+                if c + 1 <= N - 1:
+                    sufixo_sum += F_bwd[j + 1, c + 1]
+                F_bwd[j, c] = P[j, c] * sufixo_sum
+
+        # p_i = soma_{j=0..k-1} (F_fwd[j, i-1] * F_bwd[j, i-1] / P[j, i-1] * P[j, i-1]) / Z
+        # = soma_j (F_fwd[j, i-1] * F_bwd[j, i-1]) / Z   (quando P[j,i-1] > 0)
+        p_inc = np.zeros(N, dtype=np.float64)
+        for j in range(k):
+            min_c = j
+            max_c = N - (k - j)
+            for c in range(min_c, max_c + 1):
+                if P[j, c] <= 0:
+                    continue
+                # Conjuntos onde d_{j+1} = c+1:
+                # esquerda = F_fwd[j, c], direita = F_bwd[j, c]
+                # O produto F_fwd[j,c] * F_bwd[j,c] conta prod P_l(d_l)
+                # para todos os conjuntos com d_{j+1}=c+1, mas P[j,c] eh contado
+                # duas vezes (uma em cada lado). Dividir por P[j,c] corrige.
+                contribuicao = F_fwd[j, c] * F_bwd[j, c] / P[j, c]
+                p_inc[c] += contribuicao
+
+        p_inc /= Z
+        # Limpeza numerica
+        p_inc = np.clip(p_inc, 0.0, 1.0)
+        return p_inc
 
     # ------------------------------------------------------------------
     # Propriedades

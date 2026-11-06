@@ -12,29 +12,34 @@ Contém:
 from __future__ import annotations
 
 from lstm_virada.models.fisher import FisherError, FisherModel
-from lstm_virada.models.plackett_luce import PlackettLuce, PlackettLuceError
-from lstm_virada.models.positional import PositionalError, PositionalModel
-from lstm_virada.models.seq_pl import NUM_CLASSES, NUM_DEZENAS_JOGO, SeqPLError, SeqPLModel
 from lstm_virada.models.lstm_seis_cabecas import (
+    VARIANTE_CCE,
+    VARIANTE_SET,
     LSTMSeisCabecas,
     LSTMSeisCabecasError,
-    VARIANTE_SET,
-    VARIANTE_CCE,
+)
+from lstm_virada.models.plackett_luce import PlackettLuce, PlackettLuceError
+from lstm_virada.models.positional import PositionalError, PositionalModel
+from lstm_virada.models.seq_pl import (
+    NUM_CLASSES,
+    NUM_DEZENAS_JOGO,
+    SeqPLError,
+    SeqPLModel,
 )
 
 __all__ = [
-    "PlackettLuce",
-    "PlackettLuceError",
-    "FisherModel",
-    "FisherError",
-    "PositionalModel",
-    "PositionalError",
-    "SeqPLModel",
-    "SeqPLError",
-    "LSTMSeisCabecas",
-    "LSTMSeisCabecasError",
-    "VARIANTE_SET",
-    "VARIANTE_CCE",
     "NUM_CLASSES",
     "NUM_DEZENAS_JOGO",
+    "VARIANTE_CCE",
+    "VARIANTE_SET",
+    "FisherError",
+    "FisherModel",
+    "LSTMSeisCabecas",
+    "LSTMSeisCabecasError",
+    "PlackettLuce",
+    "PlackettLuceError",
+    "PositionalError",
+    "PositionalModel",
+    "SeqPLError",
+    "SeqPLModel",
 ]

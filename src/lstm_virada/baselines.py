@@ -18,8 +18,9 @@ RV-001 a RV-005 (comparação com baselines).
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass
-from typing import Final, Sequence
+from typing import Any, Final
 
 import numpy as np
 import pandas as pd
@@ -88,7 +89,12 @@ class B0Uniforme:
     def predizer_conjunto(self) -> tuple[int, ...]:
         """Retorna 6 dezenas sorteadas uniformemente sem reposição (não determinístico)."""
         rng = np.random.default_rng()
-        return tuple(int(d) for d in sorted(rng.choice(NUM_CLASSES, size=NUM_DEZENAS_JOGO, replace=False) + 1))
+        return tuple(
+            int(d)
+            for d in sorted(
+                rng.choice(NUM_CLASSES, size=NUM_DEZENAS_JOGO, replace=False) + 1
+            )
+        )
 
     def avaliar(
         self,
@@ -315,9 +321,7 @@ class B2bPLFrequenciaEmpirica:
             dezenas_treino: array (N_treino, 6) com dezenas 1..60.
         """
         frequencias = np.zeros(NUM_CLASSES + 1, dtype=np.float64)
-        total_sorteios = 0
         for row in dezenas_treino:
-            total_sorteios += 1
             for dez in row:
                 frequencias[int(dez)] += 1.0
 
@@ -325,7 +329,9 @@ class B2bPLFrequenciaEmpirica:
         # então w_i > 0 para todo i (evita suporte zero).
         w = frequencias[1:]  # índice 0..59 = dezena 1..60
         if np.any(w <= 0):
-            raise BaselineError("Alguma dezena não aparece no treino; B2b requer w_i > 0.")
+            raise BaselineError(
+                "Alguma dezena não aparece no treino; B2b requer w_i > 0."
+            )
 
         # Normaliza para média geométrica 1 (identificabilidade de escala)
         w = w / np.mean(w)
@@ -357,7 +363,6 @@ class B2bPLFrequenciaEmpirica:
             # Soma sobre as 720 permutações de S
             termos_log = []
             for pi in itertools.permutations(S):
-                denom_sum = 0.0
                 log_denom_soma = 0.0
                 restante = W
                 for idx in pi:
@@ -412,7 +417,7 @@ class B3ConcursoAnterior:
             dezenas: array (N, 6) com dezenas 1..60.
         """
         self._concurso_para_dezenas = {}
-        for conc, row in zip(concursos.tolist(), dezenas.tolist()):
+        for conc, row in zip(concursos.tolist(), dezenas.tolist(), strict=False):
             self._concurso_para_dezenas[int(conc)] = tuple(int(d) for d in row)
 
     def predizer_para_concurso(self, concurso_alvo: int) -> tuple[int, ...]:
@@ -432,7 +437,9 @@ class B3ConcursoAnterior:
         """Avalia B3 no conjunto de teste por acertos."""
         acertos = []
         conjunto_predito = None
-        for conc, row in zip(concursos_teste.tolist(), dezenas_teste.tolist()):
+        for conc, row in zip(
+            concursos_teste.tolist(), dezenas_teste.tolist(), strict=False
+        ):
             try:
                 pred = self.predizer_para_concurso(conc)
                 conjunto_set = set(pred)
@@ -456,7 +463,7 @@ class B3ConcursoAnterior:
 # ==============================================================================
 # Fábrica de Baselines
 # ==============================================================================
-def criar_baseline(nome: str, **kwargs) -> object:
+def criar_baseline(nome: str, **kwargs: Any) -> object:
     """Cria um baseline pelo nome.
 
     Args:

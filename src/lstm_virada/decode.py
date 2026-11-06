@@ -14,7 +14,9 @@ Tarefa: T2 — Codificação e decodificação
 
 from __future__ import annotations
 
-from typing import Final, Sequence
+from collections.abc import Sequence
+from typing import Final
+
 import numpy as np
 
 NUM_HEADS: Final[int] = 6
@@ -24,6 +26,7 @@ EPSILON: Final[float] = 1e-12
 
 class DecodingError(ValueError):
     """Exceção levantada quando a matriz de probabilidades fornecida é inválida."""
+
     pass
 
 
@@ -150,7 +153,9 @@ def decode_top1_dp(
             best_c5 = c
 
     if best_c5 == -1:
-        raise DecodingError("Falha ao encontrar caminho viável na programação dinâmica.")
+        raise DecodingError(
+            "Falha ao encontrar caminho viável na programação dinâmica."
+        )
 
     # Reconstrução do caminho ótimo por backtracking
     selected_classes = [0] * NUM_HEADS
@@ -174,7 +179,14 @@ def decode_top1_dp(
     if not all(dezenas[k] < dezenas[k + 1] for k in range(5)):
         raise DecodingError(f"Dezenas fora de ordem estrita: {dezenas}.")
 
-    return (int(dezenas[0]), int(dezenas[1]), int(dezenas[2]), int(dezenas[3]), int(dezenas[4]), int(dezenas[5]))
+    return (
+        int(dezenas[0]),
+        int(dezenas[1]),
+        int(dezenas[2]),
+        int(dezenas[3]),
+        int(dezenas[4]),
+        int(dezenas[5]),
+    )
 
 
 def decode_batch_dp(

@@ -22,13 +22,12 @@ P0-08: implementação de métricas.
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass
-from typing import Final, Sequence
+from typing import Final
 
 import numpy as np
 from scipy import stats as sp_stats
-
-from lstm_virada.data import DEZENA_COLS
 
 NUM_CLASSES: Final[int] = 60
 NUM_DEZENAS_JOGO: Final[int] = 6
@@ -128,7 +127,7 @@ def brier_marginal(
             f"dezenas_reais deve ter shape (n, {NUM_DEZENAS_JOGO}), recebido: {dezenas_reais.shape}."
         )
 
-    n = dezenas_reais.shape[0]
+    dezenas_reais.shape[0]
     brier = np.zeros(NUM_CLASSES, dtype=np.float64)
 
     for i in range(NUM_CLASSES):
@@ -324,7 +323,7 @@ def teste_wilcoxon_parado(
     _alt_map = {"maior": "greater", "menor": "less", "dois_lados": "two-sided"}
     alt_scipy = _alt_map.get(alternativa, alternativa)
 
-    estatistico, p_valor = sp_stats.wilcoxon(
+    _estatistico, p_valor = sp_stats.wilcoxon(
         delta_nz,
         alternative=alt_scipy,
     )
@@ -391,7 +390,7 @@ def bootstrap_bca_ic_medio(
         raise MetricError("delta está vazio após remover NaNs.")
 
     rng = np.random.default_rng(seed)
-    media_obs = np.mean(delta)
+    np.mean(delta)
 
     # Réplicas bootstrap
     replicacoes = np.empty(n_bootstrap, dtype=np.float64)

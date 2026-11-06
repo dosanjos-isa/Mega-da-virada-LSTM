@@ -28,8 +28,8 @@ from tensorflow import keras
 NUM_CLASSES: Final[int] = 60
 NUM_DEZENAS_JOGO: Final[int] = 6
 
-VARIANTE_SET = "set"   # Likelihood de conjunto
-VARIANTE_CCE = "cce"   # Pseudo-likelihood (soma de CCEs)
+VARIANTE_SET = "set"  # Likelihood de conjunto
+VARIANTE_CCE = "cce"  # Pseudo-likelihood (soma de CCEs)
 
 
 class LSTMSeisCabecasError(ValueError):
@@ -90,7 +90,7 @@ class LSTMSeisCabecas:
         cabecas = []
         for j in range(self._k):
             cabeca = keras.layers.Dense(
-                self._N, activation="softmax", name=f"cabeca_{j+1}"
+                self._N, activation="softmax", name=f"cabeca_{j + 1}"
             )(x)
             cabecas.append(cabeca)
 
@@ -147,15 +147,15 @@ class LSTMSeisCabecas:
         # y_pred: (batch, k, N), y_true: (batch, k)
         # Obter log P_j(d_j) para cada (amostra, cabeça)
         indices = tf.stack(
-            [tf.range(batch_size)[:, None] * tf.ones((1, k), dtype=tf.int32),
-             tf.tile(tf.range(k)[None, :], [batch_size, 1]),
-             y_true],
+            [
+                tf.range(batch_size)[:, None] * tf.ones((1, k), dtype=tf.int32),
+                tf.tile(tf.range(k)[None, :], [batch_size, 1]),
+                y_true,
+            ],
             axis=-1,
         )  # (batch, k, 3): [batch_idx, head_idx, class_idx]
 
-        log_p_j = tf.math.log(
-            tf.gather_nd(y_pred, indices) + 1e-12
-        )  # (batch, k)
+        log_p_j = tf.math.log(tf.gather_nd(y_pred, indices) + 1e-12)  # (batch, k)
         soma_log_p_j = tf.reduce_sum(log_p_j, axis=1)  # (batch,)
 
         # Calcular Z por DP para cada amostra no batch
@@ -181,9 +181,7 @@ class LSTMSeisCabecas:
                 min_c = j
                 max_c = N - (k - j)
                 # Soma cumulativa de F[j-1, :] para obter prefix sums
-                cumsum_prev = tf.concat(
-                    [[0.0], tf.cumsum(F[j - 1, :])[:-1]], axis=0
-                )
+                cumsum_prev = tf.concat([[0.0], tf.cumsum(F[j - 1, :])[:-1]], axis=0)
                 # Máscara para c em [min_c, max_c]
                 mascara_j = tf.cast(
                     (tf.range(N) >= min_c) & (tf.range(N) <= max_c),
@@ -222,6 +220,9 @@ class LSTMSeisCabecas:
         taxa_aprendizado: float = 1e-3,
         paciencia: int = 10,
         validacao_split: float = 0.1,
+        sample_weight: np.ndarray | None = None,
+        x_val: np.ndarray | None = None,
+        y_val: np.ndarray | None = None,
         verbose: int = 1,
     ) -> dict:
         """Treina o modelo M5.
@@ -233,7 +234,12 @@ class LSTMSeisCabecas:
             epocas: número máximo de épocas (padrão: 100).
             taxa_aprendizado: learning rate do Adam.
             paciencia: paciência do early stopping.
-            validacao_split: fração de validação.
+            validacao_split: fração de validação (usado apenas se x_val/y_val
+                não forem fornecidos).
+            sample_weight: pesos por amostra para o treino (shape (N,)).
+            x_val: dados de validacao opcionais [x_seq, x_static]. Se fornecido,
+                nao usa validacao_split do Keras.
+            y_val: alvos de validacao (shape (N_val, k)).
             verbose: nível de verbosidade do Keras.
 
         Returns:
@@ -246,9 +252,11 @@ class LSTMSeisCabecas:
 
         # Se janelas não fornecidas, gera dados sintéticos (apenas para teste)
         if janelas is None:
-            janelas = np.random.default_rng(42).uniform(
-                0, 1, size=(n, self._window_size, 61)
-            ).astype(np.float32)
+            janelas = (
+                np.random.default_rng(42)
+                .uniform(0, 1, size=(n, self._window_size, 61))
+                .astype(np.float32)
+            )
             if alvos_virada is None:
                 alvos_virada = np.zeros(n, dtype=np.float32)
 
@@ -286,14 +294,24 @@ class LSTMSeisCabecas:
             min_lr=1e-6,
         )
 
-        historico = modelo.fit(
-            x=[janelas, alvos_virada],
-            y=alvos_idx,
-            epochs=epocas,
-            validation_split=validacao_split,
-            callbacks=[early_stop, reduce_lr],
-            verbose=verbose,
-        )
+        fit_kwargs: dict = {
+            "x": [janelas, alvos_virada],
+            "y": alvos_idx,
+            "epochs": epocas,
+            "callbacks": [early_stop, reduce_lr],
+            "verbose": verbose,
+        }
+        if sample_weight is not None:
+            fit_kwargs["sample_weight"] = sample_weight
+
+        if x_val is not None and y_val is not None:
+            # Validacao explicitamente fornecida (exclui Viradas, D-12)
+            x_val_static = np.zeros((len(y_val), 1), dtype=np.float32)
+            fit_kwargs["validation_data"] = ([x_val, x_val_static], y_val)
+        else:
+            fit_kwargs["validation_split"] = validacao_split
+
+        historico = modelo.fit(**fit_kwargs)
 
         self._esta_ajustado = True
 
@@ -301,6 +319,108 @@ class LSTMSeisCabecas:
             "loss": historico.history.get("loss", []),
             "val_loss": historico.history.get("val_loss", []),
         }
+
+    # ------------------------------------------------------------------
+    # Probabilidade de conjunto (avaliacao fora da amostra)
+    # ------------------------------------------------------------------
+    def _obter_P_para_janela(
+        self,
+        janela_x_seq: np.ndarray | None,
+        janela_x_static: np.ndarray | None,
+    ) -> np.ndarray:
+        """Executa forward pass e retorna P_j (k, N) para uma janela.
+
+        Args:
+            janela_x_seq: array (1, W, 61) ou (W, 61). Se None, usa zeros.
+            janela_x_static: array (1, 1) ou (1,). Se None, usa zeros.
+
+        Returns:
+            np.ndarray shape (k, N) com P_j(c) para cada posicao j.
+        """
+        rede = self._obter_ou_construir_rede()
+        if janela_x_seq is None:
+            janela_x_seq = np.zeros((1, self._window_size, 61), dtype=np.float32)
+        elif janela_x_seq.ndim == 2:
+            janela_x_seq = janela_x_seq[np.newaxis, :, :]
+        if janela_x_static is None:
+            janela_x_static = np.zeros((1, 1), dtype=np.float32)
+        elif janela_x_static.ndim == 1:
+            janela_x_static = janela_x_static[np.newaxis, :]
+
+        previsoes = rede.predict(
+            [janela_x_seq, janela_x_static], verbose=0
+        )  # (1, k, N)
+        P = previsoes[0]  # (k, N)
+        return P
+
+    def _calcular_log_Z(self, P: np.ndarray) -> float:
+        """Calcula log Z por DP para uma matriz P (k, N).
+
+        Z = soma sobre d1<...<dk de prod_j P_j(d_j).
+        """
+        k = self._k
+        N = self._N
+        F = np.zeros((k, N), dtype=np.float64)
+
+        max_c0 = N - k
+        for c in range(0, max_c0 + 1):
+            F[0, c] = P[0, c]
+
+        for j in range(1, k):
+            min_c = j
+            max_c = N - (k - j)
+            prefix_sum = 0.0
+            for c in range(min_c, max_c + 1):
+                prefix_sum += F[j - 1, c - 1]
+                F[j, c] = P[j, c] * prefix_sum
+
+        Z = float(np.sum(F[k - 1, :]))
+        if Z <= 0:
+            return float("-inf")
+        return float(np.log(Z))
+
+    def log_prob_conjunto(
+        self,
+        S: tuple[int, ...],
+        janela_x_seq: np.ndarray | None = None,
+        janela_x_static: np.ndarray | None = None,
+    ) -> float:
+        """Retorna log P_M3(S | historico) para M5-SET.
+
+        log P(S) = sum_j log P_j(d_j) - log Z.
+
+        Args:
+            S: conjunto de 6 dezenas (ordenado).
+            janela_x_seq: janela de inferencia (1, W, 61) ou (W, 61).
+            janela_x_static: contexto estatico (1, 1).
+
+        Returns:
+            log P(S) como float.
+        """
+        if self._modelo is None:
+            raise LSTMSeisCabecasError("Modelo nao treinado. Chame treinar() primeiro.")
+
+        S_ordenado = tuple(sorted(int(d) for d in S))
+        if len(S_ordenado) != self._k:
+            raise LSTMSeisCabecasError(
+                f"Conjunto deve conter exatamente {self._k} dezenas."
+            )
+
+        P = self._obter_P_para_janela(janela_x_seq, janela_x_static)  # (k, N)
+
+        # sum_j log P_j(d_j)
+        soma_log_p = 0.0
+        for j, dez in enumerate(S_ordenado):
+            p_val = P[j, int(dez) - 1]
+            if p_val <= 0:
+                return float("-inf")
+            soma_log_p += np.log(p_val)
+
+        log_Z = self._calcular_log_Z(P)
+        if log_Z == float("-inf"):
+            return float("-inf")
+
+        return float(soma_log_p - log_Z)
 
     # ------------------------------------------------------------------
     # Propriedades

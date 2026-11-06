@@ -8,21 +8,18 @@ Cobre: Geração de jogos, amostragem exata, diversidade de portfólio, metadado
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from itertools import permutations
-from pathlib import Path
-from typing import Any, Final, Sequence
-
 import hashlib
 import json
-import numpy as np
-import pandas as pd
-from datetime import datetime, timezone
+from dataclasses import dataclass
+from datetime import UTC, datetime
+from pathlib import Path
+from typing import Any, Final
 
-from lstm_virada.data import DEZENA_COLS
+import numpy as np
+
 from lstm_virada.models import (
-    PlackettLuce, FisherModel, PositionalModel, SeqPLModel, LSTMSeisCabecas,
-    VARIANTE_SET, VARIANTE_CCE,
+    LSTMSeisCabecas,
+    SeqPLModel,
 )
 
 NUM_CLASSES: Final[int] = 60
@@ -34,12 +31,14 @@ DEFAULT_MAX_ATTEMPTS_FACTOR: Final[int] = 100
 
 class GenerationError(ValueError):
     """Exceção levantada quando a geração de jogos encontra dados inválidos."""
+
     pass
 
 
 @dataclass
 class GenerationMetadata:
     """Metadados imutáveis de uma geração."""
+
     timestamp: str
     model_name: str
     model_hash: str | None
@@ -59,6 +58,7 @@ class GenerationMetadata:
 @dataclass
 class GenerationResult:
     """Resultado de uma geração de jogos."""
+
     games: list[list[int]]
     metadata: GenerationMetadata
 
@@ -132,7 +132,7 @@ class Generator:
         saturated = len(games) < K
 
         metadata = GenerationMetadata(
-            timestamp=datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+            timestamp=datetime.now(UTC).isoformat().replace("+00:00", "Z"),
             model_name=self.model_name,
             model_hash=None,  # Preenchido pelo chamador se houver modelo
             dataset_hash=dataset_hash,
@@ -196,9 +196,7 @@ class Generator:
             # Forward pass pela rede SeqPL: saída (batch, k, N)
             rede = self.model._obter_ou_construir_rede()
             alvos_virada = np.zeros((1, 1), dtype=np.float32)
-            pesos = rede.predict(
-                [janela, alvos_virada], verbose=0
-            )  # (1, k, N)
+            pesos = rede.predict([janela, alvos_virada], verbose=0)  # (1, k, N)
             pesos = pesos[0]  # (k, N)
 
             for j in range(n_passos):
@@ -213,9 +211,7 @@ class Generator:
             # Forward pass pela rede LSTM de 6 cabeças
             rede = self.model._obter_ou_construir_rede()
             alvos_virada = np.zeros((1, 1), dtype=np.float32)
-            previsoes = rede.predict(
-                [janela, alvos_virada], verbose=0
-            )  # (1, k, N)
+            previsoes = rede.predict([janela, alvos_virada], verbose=0)  # (1, k, N)
             previsoes = previsoes[0]  # (k, N)
 
             for j in range(n_passos):
@@ -235,7 +231,9 @@ class Generator:
 
     def _sample_uniform(self) -> list[int]:
         """Amostra 6 dezenas uniformes sem reposição."""
-        return sorted(self.rng.choice(NUM_CLASSES, size=NUM_DEZENAS_JOGO, replace=False) + 1)
+        return sorted(
+            self.rng.choice(NUM_CLASSES, size=NUM_DEZENAS_JOGO, replace=False) + 1
+        )
 
     def _sample_from_model_weights(self) -> list[int]:
         """Amostra usando pesos PL/Fisher (M1, M2).
@@ -248,7 +246,7 @@ class Generator:
             return self._sample_from_positional_model()
 
         # Obtém pesos do modelo (M1, M2)
-        if hasattr(self.model, 'pesos'):
+        if hasattr(self.model, "pesos"):
             w = self.model.pesos  # array numpy de 60 pesos
         else:
             raise GenerationError(
@@ -355,7 +353,7 @@ class Generator:
         que produz cada conjunto S com probabilidade exata
         prod_j P_j(d_j) / Z (diferente da amostragem sequencial truncada M3-seq).
         """
-        if not hasattr(self.model, '_P'):
+        if not hasattr(self.model, "_P"):
             raise GenerationError(
                 "Modelo M3 não possui matriz _P de probabilidades positionais."
             )
@@ -589,7 +587,7 @@ def save_generation(
 
 def load_generation(filepath: Path) -> GenerationResult:
     """Carrega uma geração salva."""
-    with open(filepath, "r", encoding="utf-8") as f:
+    with open(filepath, encoding="utf-8") as f:
         data = json.load(f)
 
     metadata = GenerationMetadata(

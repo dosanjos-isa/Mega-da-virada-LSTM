@@ -122,7 +122,7 @@ class SeqPLModel:
         # Todas as permutações de 0..k-1 (constante)
         perms_list = list(permutations(range(k)))
         perms = tf.constant(perms_list, dtype=tf.int32)  # (n_perms, k)
-        n_perms = tf.shape(perms)[0]
+        tf.shape(perms)[0]
 
         def log_prob_para_amostra(i):
             """log P(S_i) para a amostra i via logsumexp sobre permutações."""
@@ -138,19 +138,15 @@ class SeqPLModel:
                     w_j = y_pred[i, j, :]  # (N,) pesos do passo j para amostra i
 
                     # Denominador: soma dos pesos para dezenas não usadas
-                    w_disponiveis = tf.where(
-                        usadas, tf.zeros_like(w_j), w_j
-                    )
+                    w_disponiveis = tf.where(usadas, tf.zeros_like(w_j), w_j)
                     denominador = tf.reduce_sum(w_disponiveis)
 
-                    log_prob = log_prob + tf.math.log(w_j[idx_alvo]) - tf.math.log(
-                        denominador
+                    log_prob = (
+                        log_prob + tf.math.log(w_j[idx_alvo]) - tf.math.log(denominador)
                     )
 
                     # Marcar idx_alvo como usada
-                    usadas = tf.tensor_scatter_nd_update(
-                        usadas, [[idx_alvo]], [True]
-                    )
+                    usadas = tf.tensor_scatter_nd_update(usadas, [[idx_alvo]], [True])
 
                 return log_prob
 
@@ -187,6 +183,9 @@ class SeqPLModel:
         taxa_aprendizado: float = 1e-3,
         paciencia: int = 10,
         validacao_split: float = 0.1,
+        sample_weight: np.ndarray | None = None,
+        x_val: np.ndarray | None = None,
+        y_val: np.ndarray | None = None,
         verbose: int = 1,
     ) -> dict:
         """Treina o modelo SeqPL por máxima verossimilhança de conjunto.
@@ -199,7 +198,12 @@ class SeqPLModel:
             epocas: número máximo de épocas (padrão: 100).
             taxa_aprendizado: learning rate do Adam.
             paciencia: paciência do early stopping.
-            validacao_split: fração de validação.
+            validacao_split: fração de validação (usado apenas se x_val/y_val
+                não forem fornecidos).
+            sample_weight: pesos por amostra para o treino (shape (N,)).
+            x_val: dados de validacao opcionais [x_seq, x_static]. Se fornecido,
+                nao usa validacao_split do Keras.
+            y_val: alvos de validacao (shape (N_val, k)).
             verbose: nível de verbosidade do Keras.
 
         Returns:
@@ -212,9 +216,11 @@ class SeqPLModel:
 
         # Se janelas não fornecidas, gera dados sintéticos (apenas para teste)
         if janelas is None:
-            janelas = np.random.default_rng(42).uniform(
-                0, 1, size=(n, self._window_size, 61)
-            ).astype(np.float32)
+            janelas = (
+                np.random.default_rng(42)
+                .uniform(0, 1, size=(n, self._window_size, 61))
+                .astype(np.float32)
+            )
             if alvos_virada is None:
                 alvos_virada = np.zeros(n, dtype=np.float32)
 
@@ -247,14 +253,24 @@ class SeqPLModel:
             min_lr=1e-6,
         )
 
-        historico = modelo.fit(
-            x=[janelas, alvos_virada],
-            y=alvos_idx,
-            epochs=epocas,
-            validation_split=validacao_split,
-            callbacks=[early_stop, reduce_lr],
-            verbose=verbose,
-        )
+        fit_kwargs: dict = {
+            "x": [janelas, alvos_virada],
+            "y": alvos_idx,
+            "epochs": epocas,
+            "callbacks": [early_stop, reduce_lr],
+            "verbose": verbose,
+        }
+        if sample_weight is not None:
+            fit_kwargs["sample_weight"] = sample_weight
+
+        if x_val is not None and y_val is not None:
+            # Validacao explicitamente fornecida (exclui Viradas, D-12)
+            x_val_static = np.zeros((len(y_val), 1), dtype=np.float32)
+            fit_kwargs["validation_data"] = ([x_val, x_val_static], y_val)
+        else:
+            fit_kwargs["validation_split"] = validacao_split
+
+        historico = modelo.fit(**fit_kwargs)
 
         self._esta_ajustado = True
 
@@ -302,28 +318,108 @@ class SeqPLModel:
 
         return {d: w for d, w in pesos.items() if d not in usadas}
 
-    def prob_conjunto(self, S: tuple[int, ...]) -> float:
+    def _obter_pesos_para_janela(
+        self,
+        janela_x_seq: np.ndarray | None,
+        janela_x_static: np.ndarray | None,
+    ) -> np.ndarray:
+        """Executa forward pass e retorna pesos w_{j,i} (k, N) para uma janela.
+
+        Args:
+            janela_x_seq: array (1, W, 61) ou (W, 61). Se None, usa zeros.
+            janela_x_static: array (1, 1) ou (1,). Se None, usa zeros.
+
+        Returns:
+            np.ndarray shape (k, N) com pesos w_{j,i} para cada passo j.
+        """
+        rede = self._obter_ou_construir_rede()
+        if janela_x_seq is None:
+            janela_x_seq = np.zeros((1, self._window_size, 61), dtype=np.float32)
+        elif janela_x_seq.ndim == 2:
+            janela_x_seq = janela_x_seq[np.newaxis, :, :]
+        if janela_x_static is None:
+            janela_x_static = np.zeros((1, 1), dtype=np.float32)
+        elif janela_x_static.ndim == 1:
+            janela_x_static = janela_x_static[np.newaxis, :]
+
+        pesos = rede.predict([janela_x_seq, janela_x_static], verbose=0)  # (1, k, N)
+        return pesos[0]  # (k, N)
+
+    def _log_prob_sequencial_para_permutacao(
+        self,
+        pesos: np.ndarray,
+        S_idx: tuple[int, ...],
+        pi: tuple[int, ...],
+    ) -> float:
+        """Calcula log P_ord(pi) para uma permutacao dada os pesos (k, N).
+
+        P_ord(pi) = prod_j w_{j, pi_j} / (soma_{i nao em prefixo} w_{j,i})
+        """
+        log_prob = 0.0
+        usadas: set[int] = set()
+        W_total = float(np.sum(pesos, axis=1))  # (k,) soma de todos os pesos por passo
+
+        for j, dez_idx in enumerate(pi):
+            w_j = pesos[j]  # (N,)
+            # Denominador: soma dos pesos para dezenas nao usadas no passo j
+            # Usar W_total[j] menos soma dos pesos das ja usadas
+            soma_usadas = float(np.sum([w_j[i] for i in usadas]))
+            denominador = W_total[j] - soma_usadas
+            if denominador <= 0:
+                return float("-inf")
+            log_prob += np.log(w_j[dez_idx]) - np.log(denominador)
+            usadas.add(dez_idx)
+
+        return log_prob
+
+    def prob_conjunto(
+        self,
+        S: tuple[int, ...],
+        janela_x_seq: np.ndarray | None = None,
+        janela_x_static: np.ndarray | None = None,
+    ) -> float:
         """Retorna P_M4(S) = soma_{pi in Perm(S)} P_ord(pi).
 
-        Requer que definir_pesos_sequencia() tenha sido chamado (modo de teste
-        com pesos fixos).
+        Se janela_x_seq for fornecida, usa a rede neural para obter pesos
+        condicionados ao historico. Caso contrario, requer que
+        definir_pesos_sequencia() tenha sido chamado (modo de teste com pesos
+        fixos).
         """
-        if not hasattr(self, "_pesos_fixos"):
-            raise SeqPLError(
-                "Use definir_pesos_sequencia() para definir pesos antes de "
-                "calcular probabilidades."
-            )
-
         S_ordenado = tuple(sorted(int(d) for d in S))
 
         if len(set(S_ordenado)) != self._k:
-            raise SeqPLError(
-                f"Dezenas devem ser distintas: {S_ordenado}."
-            )
+            raise SeqPLError(f"Dezenas devem ser distintas: {S_ordenado}.")
 
         if not all(1 <= d <= self._N for d in S_ordenado):
             raise SeqPLError(
                 f"Todas as dezenas devem estar em [1, {self._N}]: {S_ordenado}."
+            )
+
+        if janela_x_seq is not None or self._modelo is not None:
+            # Usar rede neural
+            pesos = self._obter_pesos_para_janela(janela_x_seq, janela_x_static)
+            S_idx = tuple(d - 1 for d in S_ordenado)
+
+            # logsumexp sobre as k! permutacoes
+            termos_log = []
+            for pi in permutations(S_idx):
+                log_pi = self._log_prob_sequencial_para_permutacao(pesos, S_idx, pi)
+                termos_log.append(log_pi)
+
+            if not termos_log:
+                return 0.0
+
+            max_termo = max(termos_log)
+            logsumexp = max_termo + np.log(
+                sum(np.exp(t - max_termo) for t in termos_log)
+            )
+            return float(np.exp(logsumexp))
+
+        # Modo pesos fixos (comportamento original)
+        if not hasattr(self, "_pesos_fixos"):
+            raise SeqPLError(
+                "Use definir_pesos_sequencia() ou passe janela_x_seq para "
+                "calcular probabilidades com a rede neural."
             )
 
         # Soma sobre as k! permutacoes
@@ -333,9 +429,7 @@ class SeqPLModel:
             usadas: set[int] = set()
             for j, dez in enumerate(pi):
                 pesos_passo = self._pesos_para_passo(j, usadas)
-                W_restante = sum(
-                    w for d, w in pesos_passo.items() if d not in usadas
-                )
+                W_restante = sum(w for d, w in pesos_passo.items() if d not in usadas)
                 if W_restante <= 0:
                     prob_seq = 0.0
                     break
@@ -345,9 +439,16 @@ class SeqPLModel:
 
         return float(total)
 
-    def log_prob_conjunto(self, S: tuple[int, ...]) -> float:
+    def log_prob_conjunto(
+        self,
+        S: tuple[int, ...],
+        janela_x_seq: np.ndarray | None = None,
+        janela_x_static: np.ndarray | None = None,
+    ) -> float:
         """Retorna log P_M4(S) para um conjunto S."""
-        p = self.prob_conjunto(S)
+        p = self.prob_conjunto(
+            S, janela_x_seq=janela_x_seq, janela_x_static=janela_x_static
+        )
         if p <= 0.0:
             return -np.inf
         return float(np.log(p))

@@ -5,4 +5,3 @@ histórico de concursos da Mega-Sena, com foco na Mega da Virada.
 
 Consultar a especificação em spec/spec_lstm_mega_virada_v1.md.
 """
-

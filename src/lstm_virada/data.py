@@ -18,7 +18,6 @@ import datetime
 import hashlib
 import json
 import os
-import tempfile
 from pathlib import Path
 from typing import Final
 
@@ -27,7 +26,12 @@ import pandas as pd
 
 DEZENA_COLS: Final[list[str]] = [f"d{i}" for i in range(1, 7)]
 FINAL_COLUMNS: Final[list[str]] = [
-    "concurso", "data", "ano", "virada_ano", *DEZENA_COLS, "is_virada"
+    "concurso",
+    "data",
+    "ano",
+    "virada_ano",
+    *DEZENA_COLS,
+    "is_virada",
 ]
 
 # Mapeamento concurso -> virada_ano (edição da Mega da Virada).
@@ -94,7 +98,7 @@ def load_megasena_raw(filepath: Path) -> pd.DataFrame:
         raise FileNotFoundError(f"Arquivo não encontrado: {filepath}")
 
     # Inspeciona a primeira linha para decidir o parser adequado
-    with open(filepath, "r", encoding="utf-8-sig", errors="replace") as f:
+    with open(filepath, encoding="utf-8-sig", errors="replace") as f:
         first_line = f.readline().strip()
 
     header_parts = [p.strip() for p in first_line.split(",")]
@@ -443,7 +447,9 @@ def export_processed_dataset(
     # P0-03: manifesto JSON ao lado do dataset.
     manifest_path = output_path.with_suffix(".manifest.json")
     manifest = {
-        "criado_em": datetime.datetime.now(datetime.UTC).isoformat().replace("+00:00", "Z"),
+        "criado_em": datetime.datetime.now(datetime.UTC)
+        .isoformat()
+        .replace("+00:00", "Z"),
         "dataset_processado": str(output_path),
         "sha256_dataset": dataset_hash,
         "raw_hashes": raw_hashes or {},
@@ -511,7 +517,9 @@ def run_pipeline(
 
     # 5. Exportação com hash SHA-256 e manifesto JSON (RT-004, P0-03)
     try:
-        commit = subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip()
+        commit = subprocess.check_output(
+            ["git", "rev-parse", "HEAD"], text=True
+        ).strip()
     except Exception:
         commit = None
 

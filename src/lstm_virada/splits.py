@@ -18,13 +18,12 @@ prospectivo antes do sorteio).
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass
-from typing import Final, Iterator, Sequence
+from typing import Final
 
 import numpy as np
 import pandas as pd
-
-from lstm_virada.data import DEZENA_COLS
 
 # Edições da Mega da Virada disponíveis no dataset processado (P0-02).
 VIRADA_ANOS: Final[tuple[int, ...]] = tuple(range(2009, 2026))
@@ -43,10 +42,10 @@ class TemporalSplit:
     """Resultado de uma divisão temporal treino/teste."""
 
     train_indices: np.ndarray  # índices posicionais (0-based) de treino
-    test_indices: np.ndarray   # índices posicionais (0-based) de teste
-    as_of_concurso: int        # concurso de corte (primeiro concurso do teste)
+    test_indices: np.ndarray  # índices posicionais (0-based) de teste
+    as_of_concurso: int  # concurso de corte (primeiro concurso do teste)
     train_concursos: np.ndarray  # números de concurso de treino
-    test_concursos: np.ndarray   # números de concurso de teste
+    test_concursos: np.ndarray  # números de concurso de teste
 
 
 @dataclass(frozen=True)
@@ -94,7 +93,7 @@ class TemporalSplitter:
             raise SplitError(
                 f"as_of_concurso deve ser inteiro, recebido: {type(as_of_concurso).__name__}."
             )
-        as_of = int(as_of_concurso)
+        as_of = as_of_concurso
 
         if as_of < 1:
             raise SplitError(f"as_of_concurso deve ser >= 1, recebido: {as_of}.")
@@ -265,7 +264,7 @@ class InferenceWindowExtractor:
         if window_size < 1:
             raise SplitError(f"window_size deve ser positivo, recebido: {window_size}.")
         self._df = df.sort_values("concurso").reset_index(drop=True)
-        self._window_size = int(window_size)
+        self._window_size = window_size
 
     def extract(self, alvo_virada: int = 1) -> InferenceWindow:
         """Extrai a janela de inferência mais recente.
