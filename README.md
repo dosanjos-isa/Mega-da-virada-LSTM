@@ -53,8 +53,10 @@ Mega da virada LSTM/
 │       ├── ADR-002-modelo-probabilistico-primario.md
 │       └── ADR-003-likelihood-e-comparabilidade.md
 ├── scripts/                                    # Scripts de execução
-│   ├── activar_treino.ps1                     # Cria e ativa .venv-treino (TensorFlow)
+│   ├── activar_treino.ps1                     # Ativa .venv-treino (TensorFlow, Windows)
+│   ├── activar_treino_wsl.sh                  # Define LD_LIBRARY_PATH para CUDA (WSL2)
 │   ├── run_treino.py                           # Ponto de entrada do treino
+│   ├── run_generation.py                       # Ponto de entrada da geração de jogos
 │   └── check_gpu.py                            # Verificação de GPU via DirectML
 ├── configs/                                    # Arquivos YAML versionados (RC-003)
 │   ├── README.md                               # Guia de parâmetros de referência
@@ -78,9 +80,7 @@ Mega da virada LSTM/
 │       ├── data.py                             # Ingestão, validação RT-003, virada_ano, manifesto (P0-01 a P0-04)
 │       ├── encoding.py                         # Multi-hot 61 features, janelas W, targets_to_draw (P0-06, P0-10)
 │       ├── decode.py                           # Decodificação ótima por DP, exceções em vez de assert (P0-10)
-│       ├── model.py                            # Stub (arquitetura LSTM não implementada como modelo principal)
-│       ├── train.py                            # Stub (treino não implementado como modelo principal)
-│       ├── generation.py                        # Ausente (não implementado)
+│       ├── generation.py                        # Geração de jogos com filtros de diversidade e manifesto (P4)
 │       ├── metrics.py                          # Baselines B0–B3, métricas M1–M10 (P0-08)
 │       ├── stats.py                            # Testes de hipótese, bootstrap BCa, veredito (P0-09)
 │       ├── splits.py                           # TemporalSplitter, WalkForwardSplitter, InferenceWindowExtractor (P0-05)
@@ -164,10 +164,9 @@ O projeto foi desenvolvido em três fases, cada uma com um **gate** de aprovaç�
 | **Fase 3** | P1-04 | M4 PL Neural Sequencial | ✅ Concluído (5 testes) |
 | **Fase 3** | P1-05 | M5 LSTM 6 cabeças (M5-SET e M5-CCE) | ✅ Concluído (7 testes) |
 | **Fase 3** | P1-06 | Treino walk-forward (100 épocas, early stopping, 10 seeds) | ✅ Concluído (9 testes) |
-| **—** | Geração de jogos | `generation.py` ausente | ❌ Não iniciado |
-| **—** | Notebooks 02/03 | Placeholders, config inline | ⚠️ Obsoleto |
+| **Fase 4** | P4-1 a P4-4 | Inferência e geração com artefatos treinados (`generation.py`) | ✅ Concluído |
 
-**Total de testes implementados: 164**, todos passando.
+**Total de testes não-TF aprovados: 111** (5 erros pré-existentes são funções `teste_*` no código-fonte, não testes reais).
 
 ---
 
@@ -219,6 +218,8 @@ python tests\stats\test_stats.py
 
 O treino de modelos neurais (M4 e M5) requer o TensorFlow. Use um **venv dedicado** para não poluir o ambiente base:
 
+#### Windows (CPU)
+
 ```powershell
 # 1. Criar e ativar o ambiente de treino
 .\scripts\activar_treino.ps1
@@ -232,6 +233,27 @@ python scripts/run_treino.py --modelo M1 --epocas 100 --seeds 10
 # 4. Sair do ambiente quando terminar
 deactivate
 ```
+
+#### WSL2 Ubuntu 22.04 (GPU/CUDA via TensorFlow)
+
+O WSL2 permite aceleração por GPU NVIDIA via CUDA para treinamento de modelos neurais:
+
+```bash
+# 1. Dentro do WSL, criar e ativar o venv dedicado (criado no disco nativo ~ para evitar lentidão do OneDrive)
+source /home/<usuario>/.venv-treino-wsl/bin/activate
+source scripts/activar_treino_wsl.sh   # define LD_LIBRARY_PATH para CUDA
+
+# 2. Verificar se a GPU foi detectada pelo TensorFlow
+python -c "import tensorflow as tf; print(tf.config.list_physical_devices('GPU'))"
+
+# 3. Executar o treino walk-forward (CPU por padrão; defina CUDA_VISIBLE_DEVICES="" para forçar CPU)
+python scripts/run_treino.py --modelo M5-SET --epocas 100 --seeds 10
+
+# 4. Sair do ambiente quando terminar
+deactivate
+```
+
+O script `scripts/configurar_venv_wsl_gpu_native.sh` documenta como criar este venv do zero (instala TensorFlow + bibliotecas CUDA via pip, sem depender de `apt`).
 
 ### Modelos disponíveis para treino
 
