@@ -15,6 +15,9 @@ build/
 
 # --- Ambientes virtuais ---
 .venv/
+.venv-treino/
+.venv-treino-wsl/
+python311/
 venv/
 env/
 ENV/
@@ -55,6 +58,7 @@ checkpoints/
 saved_model/
 
 # --- Artefatos gerados pelo pipeline (nao versionar; versionado por hash em manifesto) ---
+artifacts/
 data/processed/
 data/manifests/
 
