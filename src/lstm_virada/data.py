@@ -447,7 +447,7 @@ def export_processed_dataset(
     # P0-03: manifesto JSON ao lado do dataset.
     manifest_path = output_path.with_suffix(".manifest.json")
     manifest = {
-        "criado_em": datetime.datetime.now(datetime.UTC)
+        "criado_em": datetime.datetime.now(datetime.timezone.utc)
         .isoformat()
         .replace("+00:00", "Z"),
         "dataset_processado": str(output_path),
