@@ -878,12 +878,8 @@ src/lstm_virada/
 
 ```
 Mega da virada LSTM/
-├── spec/                                       # Especificação única e ADRs
-│   ├── PROJECT_SPEC.md                         # Especificação única (este documento)
-│   └── adr/                                    # Decisões arquiteturais
-│       ├── ADR-001-geracao-de-jogos-e-diversidade.md
-│       ├── ADR-002-modelo-probabilistico-primario.md
-│       └── ADR-003-likelihood-e-comparabilidade.md
+├── spec/                                       # Especificação única
+│   └── PROJECT_SPEC.md                         # Especificação única (este documento)
 ├── scripts/                                    # Scripts de execução
 │   ├── activar_treino.ps1                     # Ativa .venv-treino (TensorFlow, Windows)
 │   ├── activar_treino_wsl.sh                  # Define LD_LIBRARY_PATH para CUDA (WSL2)
@@ -1057,8 +1053,8 @@ deactivate
 
 | Fase | Item | Escopo | Status |
 |------|------|--------|--------|
-| Fase 0 | `spec/adr/ADR-002` | Modelo primário M1, M2, M3/M4/M5, LSTM como ablação | ✅ Concluída |
-| Fase 0 | `spec/adr/ADR-003` | Likelihood, normalização, comparabilidade | ✅ Concluída |
+| Fase 0 | ADR-002 | Modelo primário M1, M2, M3/M4/M5, LSTM como ablação | ✅ Concluída |
+| Fase 0 | ADR-003 | Likelihood, normalização, comparabilidade | ✅ Concluída |
 | Fase 0 | Pré-registro estatístico | Hipóteses H1–H7, splits, métricas, testes, veredito | ✅ Concluído (incorporado ao PROJECT_SPEC.md) |
 | Fase 1 | P0-01 a P0-04 | Proveniência, `virada_ano`, manifesto, testes invariantes | ✅ Concluída (Gate 1 aprovado) |
 | Fase 2 | P0-05 a P0-10 | Splitter, baselines, métricas, estatística, contratos | ✅ Concluída (Gate 2 aprovado) |
@@ -1116,7 +1112,7 @@ O pré-registro estatístico foi incorporado a este documento (seções 15, 16, 
 
 ## 34. Emendas e Desvios Metodológicos
 
-Nenhuma emenda foi registrada até o momento. Todas as decisões metodológicas estão refletidas neste documento único e nos ADRs (`spec/adr/ADR-001`, `spec/adr/ADR-002`, `spec/adr/ADR-003`).
+Nenhuma emenda foi registrada até o momento. Todas as decisões metodológicas estão refletidas neste documento único (seções ADR-001, ADR-002 e ADR-003).
 
 ---
 
@@ -1226,4 +1222,4 @@ Para qualquer implementação, as somas de $P_{\text{M1}}$, $P_{\text{M2}}$ e $P
 
 ---
 
-*Documento consolidado a partir das decisões metodológicas registradas nos ADRs (`spec/adr/ADR-001`, `spec/adr/ADR-002`, `spec/adr/ADR-003`) e no pré-registro estatístico incorporado a este documento. Documentos históricos anteriores foram consolidados e não existem mais como arquivos separados.*
+*Documento consolidado a partir das decisões metodológicas registradas nas seções ADR-001, ADR-002 e ADR-003 deste documento e no pré-registro estatístico incorporado. Documentos históricos anteriores foram consolidados e não existem mais como arquivos separados.*

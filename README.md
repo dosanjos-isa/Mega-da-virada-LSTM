@@ -56,12 +56,8 @@ Os documentos históricos (`math_spec.md`, `pre_registration.md`, versões anter
 
 ```text
 Mega da virada LSTM/
-├── spec/                                       # Especificação única e ADRs
-│   ├── PROJECT_SPEC.md                         # Especificação única (vigente)
-│   └── adr/
-│       ├── ADR-001-geracao-de-jogos-e-diversidade.md
-│       ├── ADR-002-modelo-probabilistico-primario.md
-│       └── ADR-003-likelihood-e-comparabilidade.md
+├── spec/                                       # Especificação única
+│   └── PROJECT_SPEC.md                         # Especificação única (vigente)
 ├── scripts/                                    # Scripts de execução
 │   ├── activar_treino.ps1                     # Ativa .venv-treino (TensorFlow, Windows)
 │   ├── activar_treino_wsl.sh                  # Define LD_LIBRARY_PATH para CUDA (WSL2)
