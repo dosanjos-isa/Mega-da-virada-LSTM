@@ -289,10 +289,10 @@ pytest tests\data\ tests\encoding\ tests\splits\ tests\baselines\ tests\metrics\
 | Grupo | Requisitos cobertos | Testes |
 |-------|---------------------|--------|
 | `tests/data/` | RT-001 a RT-004, P0-01 a P0-04 | 18 |
-| `tests/encoding/` | RT-005, RT-006, P0-06, P0-10 | 25 |
+| `tests/encoding/` | RT-005, RT-006, P0-06, P0-10 | 26 |
 | `tests/splits/` | P0-05 | 15 |
-| `tests/baselines/` | P0-07 | 16 |
-| `tests/metrics/` | P0-08 | 23 |
+| `tests/baselines/` | P0-07 | 14 |
+| `tests/metrics/` | P0-08 | 22 |
 | `tests/stats/` | P0-09 | 16 |
 | `tests/models/` | P1-01 a P1-05 | 9 + 10 + 11 + 5 + 7 = 42 |
 | `tests/train_walkforward/` | P1-06 | 9 |

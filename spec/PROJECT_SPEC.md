@@ -464,7 +464,7 @@ $$
 
 **Cálculo de $Z$.** DP em $O(6 \cdot 60)$.
 
-**Amostragem exata.** A amostragem sequencial truncada do ADR-001 **não** é exata para M3. Para amostrar exatamente de M3, usa-se amostragem backward pelo DP (§9.3 da math_spec.md).
+**Amostragem exata.** A amostragem sequencial truncada do ADR-001 **não** é exata para M3. Para amostrar exatamente de M3, usa-se amostragem backward pelo DP (Seção 21.3 deste documento).
 
 **Relação com a LSTM de 6 cabeças.** A arquitetura de 6 softmax independentes, condicionadas apenas no histórico e não no prefixo de dezenas, é exatamente M3 quando normalizada por $Z$. Sem $Z$, é uma função de escore, não uma probabilidade sobre $\Omega$.
 
@@ -880,10 +880,6 @@ src/lstm_virada/
 Mega da virada LSTM/
 ├── spec/                                       # Especificação única e ADRs
 │   ├── PROJECT_SPEC.md                         # Especificação única (este documento)
-│   ├── math_spec.md                            # Histórico (v0.3-draft)
-│   ├── pre_registration.md                     # Histórico (pré-registro)
-│   ├── spec_lstm_mega_virada_v0.2.md          # Histórico (v0.2)
-│   ├── spec_lstm_mega_virada_v1.md            # Histórico (v0.1)
 │   └── adr/                                    # Decisões arquiteturais
 │       ├── ADR-001-geracao-de-jogos-e-diversidade.md
 │       ├── ADR-002-modelo-probabilistico-primario.md
@@ -891,8 +887,7 @@ Mega da virada LSTM/
 ├── scripts/                                    # Scripts de execução
 │   ├── activar_treino.ps1                     # Ativa .venv-treino (TensorFlow, Windows)
 │   ├── activar_treino_wsl.sh                  # Define LD_LIBRARY_PATH para CUDA (WSL2)
-│   ├── check_gpu.py                            # Verificação de GPU (Windows/DirectML)
-│   ├── check_gpu_wsl.py                        # Verificação de GPU (WSL/TensorFlow)
+│   ├── check_gpu.py                            # Verificação de GPU (Windows/DirectML e WSL)
 │   ├── run_treino.py                           # Ponto de entrada do treino
 │   ├── run_generation.py                       # Ponto de entrada da geração de jogos
 │   └── configurar_venv_wsl_gpu_native.sh       # Configuração do venv WSL (referência)
@@ -1045,16 +1040,16 @@ deactivate
 | Grupo | Requisitos cobertos | Status |
 |-------|---------------------|--------|
 | `tests/data/` | RT-001 a RT-004, P0-01 a P0-04 | ✅ 18 testes |
-| `tests/encoding/` | RT-005, RT-006, P0-06, P0-10 | ✅ 25 testes |
+| `tests/encoding/` | RT-005, RT-006, P0-06, P0-10 | ✅ 26 testes |
 | `tests/splits/` | P0-05 | ✅ 15 testes |
-| `tests/baselines/` | P0-07 | ✅ 16 testes |
-| `tests/metrics/` | P0-08 | ✅ 23 testes |
+| `tests/baselines/` | P0-07 | ✅ 14 testes |
+| `tests/metrics/` | P0-08 | ✅ 22 testes |
 | `tests/stats/` | P0-09 | ✅ 16 testes |
-| `tests/models/` | P1-01 a P1-05 | ✅ 44 testes |
+| `tests/models/` | P1-01 a P1-05 | ✅ 42 testes |
 | `tests/train_walkforward/` | P1-06 | ✅ 9 testes |
 | `tests/integration/` | E2E | ✅ 2 testes |
 
-**Total de testes não-TF aprovados: 111.**
+**Total de testes não-TF aprovados: 164.**
 
 ---
 
@@ -1062,10 +1057,9 @@ deactivate
 
 | Fase | Item | Escopo | Status |
 |------|------|--------|--------|
-| Fase 0 | `spec/math_spec.md` | Modelos M0–M5, likelihoods, normalizações, baselines, avaliação | ✅ Concluída (Gate 0 aprovado) |
 | Fase 0 | `spec/adr/ADR-002` | Modelo primário M1, M2, M3/M4/M5, LSTM como ablação | ✅ Concluída |
 | Fase 0 | `spec/adr/ADR-003` | Likelihood, normalização, comparabilidade | ✅ Concluída |
-| Fase 0 | `spec/pre_registration.md` | Hipóteses H1–H7, splits, métricas, testes, veredito | ✅ Concluída |
+| Fase 0 | Pré-registro estatístico | Hipóteses H1–H7, splits, métricas, testes, veredito | ✅ Concluído (incorporado ao PROJECT_SPEC.md) |
 | Fase 1 | P0-01 a P0-04 | Proveniência, `virada_ano`, manifesto, testes invariantes | ✅ Concluída (Gate 1 aprovado) |
 | Fase 2 | P0-05 a P0-10 | Splitter, baselines, métricas, estatística, contratos | ✅ Concluída (Gate 2 aprovado) |
 | Fase 3 | P1-01 | M1 Plackett–Luce | ✅ Concluído (9 testes) |
@@ -1111,7 +1105,7 @@ deactivate
 
 ## 33. Pré-Registro Científico Original
 
-O pré-registro estatístico está preservado integralmente no arquivo `spec/pre_registration.md` e foi incorporado a este documento. Resumo:
+O pré-registro estatístico foi incorporado a este documento (seções 15, 16, 17, 34, 35 e 36). Resumo:
 
 - **Hipótese primária (H1):** No Teste A ($n = 300$ concursos regulares), o log-score de conjunto de M1 é maior que o de **B0 (uniforme)**. Teste: Wilcoxon signed-rank unilateral. Nível: $\alpha = 0,05$. Efeito mínimo de relevância prática: $\overline{\Delta} \ge 0,05$ nats/concurso.
 - **Hipóteses secundárias (S1–S5):** submetidas à correção de Holm.
@@ -1122,7 +1116,7 @@ O pré-registro estatístico está preservado integralmente no arquivo `spec/pre
 
 ## 34. Emendas e Desvios Metodológicos
 
-Nenhuma emenda foi registrada até o momento. Todas as decisões metodológicas estão refletidas nos documentos originais (`math_spec.md`, `pre_registration.md`, `ADR-001`, `ADR-002`, `ADR-003`) e foram incorporadas a este documento único.
+Nenhuma emenda foi registrada até o momento. Todas as decisões metodológicas estão refletidas neste documento único e nos ADRs (`spec/adr/ADR-001`, `spec/adr/ADR-002`, `spec/adr/ADR-003`).
 
 ---
 
@@ -1232,4 +1226,4 @@ Para qualquer implementação, as somas de $P_{\text{M1}}$, $P_{\text{M2}}$ e $P
 
 ---
 
-*Documento gerado a partir da consolidação de `spec/math_spec.md`, `spec/pre_registration.md`, `spec/spec_lstm_mega_virada_v1.md`, `spec/spec_lstm_mega_virada_v0.2.md` e `spec/adr/ADR-001/002/003.md`. Os documentos originais foram arquivados e não são mais específicos ativos deste projeto.*
+*Documento consolidado a partir das decisões metodológicas registradas nos ADRs (`spec/adr/ADR-001`, `spec/adr/ADR-002`, `spec/adr/ADR-003`) e no pré-registro estatístico incorporado a este documento. Documentos históricos anteriores foram consolidados e não existem mais como arquivos separados.*
