@@ -1,6 +1,6 @@
 # LSTM para a Mega da Virada
 
-Bem-vindo ao projeto **LSTM Mega da Virada**. Este é um experimento reproduzível para testar, de forma estatisticamente honesta, se existe sinal preditivo nos sorteios da Mega-Sena/Mega da Virada, e usar esse processo para gerar jogos válidos de seis dezenas.
+Bem-vindo ao projeto **LSTM Mega da Virada**. Este é um experimento reproduzível para testar, de forma estatisticamente honesta, se existe sinal preditivo nos sorteios da Mega-Sena e da Mega da Virada, e usar esse processo para gerar jogos válidos de seis dezenas.
 
 > **⚠️ Alerta Ético e Científico:** Sorteios lotéricos são desenhados para serem processos i.i.d. (independentes e identicamente distribuídos). **Não há garantia de que um modelo neural extraia sinal preditivo persistente nem garantia de retorno financeiro.** O objetivo do projeto é a excelência de engenharia de software (SDD), reprodutibilidade e honestidade estatística — a conclusão "sem evidência de sinal" é um resultado científico válido e esperado.
 
@@ -29,7 +29,7 @@ Se você é novo no projeto, siga esta ordem:
 | Passo | O que fazer | Onde |
 |:---:|---|:---|
 | 1 | Leia a especificação matemática | `spec/PROJECT_SPEC.md` |
-| 2 | Leia o pré-registro estatístico | `spec/pre_registration.md` |
+| 2 | Leia o pré-registro estatístico | `spec/PROJECT_SPEC.md` |
 | 3 | Prepare o ambiente base (sem TensorFlow) | Seção 10.1 |
 | 4 | Rode os testes de dados, encoding, splits, baselines, métricas e stats | Seção 7 |
 | 5 | (Opcional) Prepare o ambiente de treino com TensorFlow | Seção 5.2 |
@@ -178,7 +178,7 @@ O projeto implementa modelos probabilísticos e baselines. Eles são agrupados e
 2. **Modelos estáticos (M1, M2)** — atribuem um peso fixo a cada dezena, não usam histórico de concursos anteriores.
 3. **Modelos neurais (M3, M4, M5)** — usam uma rede neural para produzir probabilidades condicionadas ao histórico recente.
 
-### 5.1. M0 — Uniforme
+### 6.1. M0 — Uniforme
 
 É o modelo mais simples possível: assume que todos os $\binom{60}{6}$ conjuntos são igualmente prováveis.
 
@@ -186,7 +186,7 @@ $$p(S) = \frac{1}{\binom{60}{6}}$$
 
 Não aprende nada com o histórico. Serve como **piso de referência**: se um modelo não consegue superar o uniforme, ele não tem sinal.
 
-### 5.2. M1 — Plackett–Luce (modelo primário)
+### 6.2. M1 — Plackett–Luce (modelo primário)
 
 O M1 atribui um **peso** $w_i > 0$ a cada dezena $i$. A probabilidade de um conjunto $S = \{d_1, \dots, d_6\}$ é obtida somando-se a probabilidade de todas as $6! = 720$ sequências ordenadas que formam esse conjunto.
 
@@ -194,7 +194,7 @@ Imagine que as dezenas são bolas em uma urna, cada uma com um peso. Você retir
 
 **Por que M1 é o modelo primário?**
 
-- Tem apenas 60 parâmetros (59 graus de liberdade efetivos, devido a uma restrição de normalização), o que reduz o risco de superajuste com 3.074 concursos.
+- Tem apenas 60 parâmetros (59 graus de liberdade efetivos, devido a uma restrição de normalização $\sum_i \log w_i = 0$), o que reduz o risco de superajuste com 3.074 concursos.
 - Tem uma interpretação física direta: cada dezena tem um "peso" ou "atração" relativa.
 - Compartilha a mesma família probabilística com o baseline B2b, permitindo isolar se o ajuste de pesos adiciona algo além das frequências empíricas.
 
@@ -371,7 +371,7 @@ source scripts/activar_treino_wsl.sh   # define LD_LIBRARY_PATH para CUDA
 python -c "import tensorflow as tf; print(tf.config.list_physical_devices('GPU'))"
 
 # 3. Executar o treino walk-forward
-python scripts/run_treino.py --modelo M5-SET --epocas 100 --seeds 10 --window-size 20
+python scripts/run_treino.py --modelo M5-SET --epocas 100 --seeds 10
 
 # 4. Sair do ambiente quando terminar
 deactivate
@@ -426,7 +426,7 @@ deactivate
 O modelo M1 (Plackett–Luce com marginalização sobre permutações) foi escolhido como modelo primário por cinco razões:
 
 1. **Interpretação física direta:** Corresponde a um modelo de urna com bolas de pesos diferentes, retiradas sem reposição — modelo natural para sorteios lotéricos.
-2. **Likelihood de conjunto bem definida:** A probabilidade de um conjunto $S = \{d_1,\dots,d_6\}$ é a soma sobre as $6! = 720$ permutações possíveis, corrigindo o fato de que a ordem real do sorteio não é observada (apenas a ordenação crescente $d_1 < \dots < d_6$ é conhecida).
+2. **Likelihood de conjunto bem definida:** A probabilidade de um conjunto $S = \{d_1,\dots,d_6\}$ é a soma sobre as $6! = 720$ sequências ordenadas que formam esse conjunto, corrigindo o fato de que a ordem real do sorteio não é observada (apenas a ordenação crescente $d_1 < \dots < d_6$ é conhecida).
 3. **Comparabilidade:** Compartilha a mesma família probabilística com o baseline B2b, permitindo isolar se o ajuste de pesos adiciona algo além das frequências empíricas.
 4. **Baixa complexidade:** Apenas 60 parâmetros (59 graus de liberdade efetivos, devido a uma restrição de normalização $\sum_i \log w_i = 0$), reduzindo risco de superajuste com 3.074 concursos.
 5. **Independência de histórico:** É um modelo estático (não usa janela temporal), ideal para testar hipótese de viés global de frequência sem confundir com efeitos temporais.
@@ -484,6 +484,12 @@ pip install -r requirements.txt
 
 # 5. Instalar o pacote lstm_virada em modo editável
 pip install -e .
+
+# 6. Registrar o kernel Jupyter dedicado
+python -m ipykernel install --user --name lstm-virada --display-name "Python (LSTM Mega da Virada)"
+
+# 7. Iniciar o JupyterLab
+jupyter lab
 ```
 
 Após ativar, você pode rodar todos os testes que não dependem de TensorFlow:
@@ -580,7 +586,7 @@ deactivate
 O modelo M1 (Plackett–Luce com marginalização sobre permutações) foi escolhido como modelo primário por cinco razões:
 
 1. **Interpretação física direta:** Corresponde a um modelo de urna com bolas de pesos diferentes, retiradas sem reposição — modelo natural para sorteios lotéricos.
-2. **Likelihood de conjunto bem definida:** A probabilidade de um conjunto $S = \{d_1,\dots,d_6\}$ é a soma sobre as $6! = 720$ permutações possíveis, corrigindo o fato de que a ordem real do sorteio não é observada (apenas a ordenação crescente $d_1 < \dots < d_6$ é conhecida).
+2. **Likelihood de conjunto bem definida:** A probabilidade de um conjunto $S = \{d_1,\dots,d_6\}$ é a soma sobre as $6! = 720$ sequências ordenadas que formam esse conjunto, corrigindo o fato de que a ordem real do sorteio não é observada (apenas a ordenação crescente $d_1 < \dots < d_6$ é conhecida).
 3. **Comparabilidade:** Compartilha a mesma família probabilística com o baseline B2b, permitindo isolar se o ajuste de pesos adiciona algo além das frequências empíricas.
 4. **Baixa complexidade:** Apenas 60 parâmetros (59 graus de liberdade efetivos, devido a uma restrição de normalização $\sum_i \log w_i = 0$), reduzindo risco de superajuste com 3.074 concursos.
 5. **Independência de histórico:** É um modelo estático (não usa janela temporal), ideal para testar hipótese de viés global de frequência sem confundir com efeitos temporais.
